@@ -1,5 +1,6 @@
-{% load static %}
+{% load static %} {% load socialaccount %}
 <!DOCTYPE html>
+
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -115,7 +116,7 @@
 
         <!-- Google Sign-In Button -->
         <button
-          onclick="signInWithGoogle()"
+          onClick="signInWithGoogle(event)"
           class="w-full bg-gray-800 hover:bg-gray-700 border-2 border-gray-600 hover:border-gray-500 text-gray-200 font-medium py-3 px-4 rounded-xl transition-all duration-300 google-btn-hover flex items-center justify-center space-x-3 mb-6"
         >
           <svg class="w-5 h-5" viewBox="0 0 24 24">
@@ -139,12 +140,18 @@
           <span>Continue with Google</span>
         </button>
 
+        <!-- Google Login Link (hidden) -->
+        <a
+          id="googleLoginLink"
+          href="{% provider_login_url 'google' %}?next=/chatbot/"
+          style="display: none"
+        ></a>
+
         <!-- Sign Up Link -->
         <div class="text-center text-sm text-gray-300">
           Don't have an account?
           <a
-            href="#"
-            onclick="showSignup()"
+            href="{% url 'signup' %}"
             class="text-[#4FC1E9] hover:text-[#3BAFDA] font-semibold transition-colors duration-300"
           >
             Sign up here
@@ -160,7 +167,6 @@
         class="absolute -bottom-4 -left-4 w-16 h-16 bg-[#3BAFDA] bg-opacity-20 rounded-full blur-xl"
       ></div>
     </div>
-
-    <script src="{% static 'scripts/loginpage.js' %}%}"></script>
   </body>
+  <script src="{% static 'scripts/loginpage.js' %}"></script>
 </html>

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="{% static 'css/index.css' %}" />
   </head>
   <body>
+
     <nav>
       {% if user.is_authenticated %}
       <a href="{% url 'logout' %}">LOG OUT</a>
@@ -15,6 +16,7 @@
       <a href="{% url "test" %}">LOG IN</a>
       {% endif %}
     </nav>
+    
     <div class="chat-container">
       <div class="chat-header">
         <div>💬 Osaba Bin Laden</div>

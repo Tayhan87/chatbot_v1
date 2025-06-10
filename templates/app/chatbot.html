@@ -1,0 +1,184 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Chat Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{% static 'css/chatbot.css' %}" />
+  </head>
+
+  <body class="min-h-screen bg-image flex items-center justify-center p-4">
+    <!-- Dark overlay for better contrast -->
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-50"></div>
+
+
+
+    <!-- Chat Container -->
+    <div class="relative z-10 w-full max-w-4xl h-[90vh]">
+      <div class="glass-effect rounded-3xl shadow-2xl h-full flex flex-col container-entrance border border-gray-700">
+        <!-- Navigation Bar -->
+        <nav class="p-4 border-b border-gray-700">
+          <div class="flex items-center justify-between">
+            <!-- Left side - Logo/Title -->
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] rounded-lg flex items-center justify-center glow-effect">
+                <span class="text-white font-bold text-lg">💬</span>
+              </div>
+              <div>
+                <h1 class="text-xl font-bold text-white text-glow">
+                  AI Chat Assistant
+                </h1>
+                <p class="text-xs text-gray-400">Powered by ChatGPT</p>
+              </div>
+            </div>
+
+            <!-- Right side - Navigation buttons -->
+            <div class="flex items-center space-x-3">
+              <!-- Button -->
+              <button
+                id="customButton"
+                class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-3 py-2 rounded-lg transition-all duration-300 btn-hover flex items-center space-x-2"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  />
+                </svg>
+                <span>Button</span>
+              </button>
+
+
+              <!-- Logout Button -->
+              <button
+                id="logoutButton"
+                class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold px-3 py-2 rounded-lg transition-all duration-300 logout-btn-hover logout-glow flex items-center space-x-2"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path
+                    d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H4v16h10v-2h2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2h10z"
+                  />
+                </svg>
+                <span>Logout</span>
+              </button>
+              {% comment %} <a href="{% url "logout" %}" id="logouts" style="display:none" ></a> {% endcomment %}
+            </div>
+          </div>
+        </nav>
+
+        <!-- Chat Messages Area -->
+        <div class="flex-1 overflow-y-auto p-6 chat-messages" id="chatMessages">
+          <div class="space-y-4">
+            <!-- Welcome Message -->
+            <div class="flex justify-start">
+              <div
+                class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance"
+              >
+                <div class="flex items-center space-x-2 mb-2">
+                  <div
+                    class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"
+                  ></div>
+                  <span class="text-xs text-[#4FC1E9] font-semibold"
+                    >AI Assistant</span
+                  >
+                </div>
+                Hello! I'm your AI assistant. How can I help you today?
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="px-6" id="typingIndicator" style="display: none">
+          <div class="flex justify-start mb-4">
+            <div
+              class="message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm"
+            >
+              <div class="flex items-center space-x-2 mb-2">
+                <div
+                  class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"
+                ></div>
+                <span class="text-xs text-[#4FC1E9] font-semibold"
+                  >AI Assistant</span
+                >
+              </div>
+              <div class="typing-dots">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Chat Input -->
+        <div class="p-6 border-t border-gray-700">
+          <form id="chatForm" class="flex space-x-3">
+            <div class="flex-1 relative">
+              <textarea
+                id="messageInput"
+                placeholder="Type your message here or use voice..."
+                rows="1"
+                class="w-full px-4 py-3 pr-12 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:border-[#4FC1E9] focus:outline-none transition-all duration-300 input-focus placeholder-gray-400 resize-none"
+              ></textarea>
+              <!-- Voice/Mic Button - Fixed positioning -->
+              <button
+                type="button"
+                id="voiceButton"
+                class="voice-btn text-white"
+                title="Voice input"
+              >
+                <svg
+                  class="w-4 h-4"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  id="micIcon"
+                >
+                  <path
+                    d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"
+                  />
+                </svg>
+                <svg
+                  class="w-4 h-4 hidden"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                  id="stopIcon"
+                >
+                  <path d="M6 6h12v12H6z" />
+                </svg>
+              </button>
+            </div>
+            <button
+              type="submit"
+              id="sendButton"
+              class="bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] hover:from-[#3BAFDA] hover:to-[#4FC1E9] text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 btn-hover glow-effect flex items-center space-x-2"
+            >
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+              <span>Send</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Decorative Elements -->
+      <div
+        class="absolute -top-6 -right-6 w-24 h-24 bg-[#4FC1E9] bg-opacity-20 rounded-full blur-xl floating-decoration"
+      ></div>
+      <div
+        class="absolute -bottom-6 -left-6 w-20 h-20 bg-[#3BAFDA] bg-opacity-20 rounded-full blur-xl floating-decoration-2"
+      ></div>
+      <div
+        class="absolute top-1/2 -left-4 w-16 h-16 bg-[#4FC1E9] bg-opacity-10 rounded-full blur-lg floating-decoration"
+      ></div>
+      <div
+        class="absolute top-1/4 -right-4 w-12 h-12 bg-[#3BAFDA] bg-opacity-10 rounded-full blur-lg floating-decoration-2"
+      ></div>
+    </div>
+
+    <script src ={% static 'scripts/chatbot.js' %}></script>
+  </body>
+</html>

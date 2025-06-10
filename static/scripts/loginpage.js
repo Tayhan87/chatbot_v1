@@ -54,26 +54,32 @@ document.getElementById("loginForm").addEventListener("submit", function (e) {
   }
 });
 
-// Google Sign-In simulation
-function signInWithGoogle() {
-  const googleBtn = event.target;
+function signInWithGoogle(event) {
+  console.log("Google sign-in initiated");
+  const googleBtn = event.currentTarget;
   const originalContent = googleBtn.innerHTML;
 
+  // Show loading state
   googleBtn.innerHTML = `
-                <div class="flex items-center justify-center space-x-2">
-                    <div class="w-5 h-5 border-2 border-[#4FC1E9] border-t-transparent rounded-full loading-spinner"></div>
-                    <span>Signing in...</span>
-                </div>
-            `;
+    <div class="flex items-center justify-center space-x-2">
+      <div class="w-5 h-5 border-2 border-[#4FC1E9] border-t-transparent rounded-full loading-spinner"></div>
+      <span>Signing in...</span>
+    </div>
+  `;
   googleBtn.disabled = true;
 
+  // Redirect to Google OAuth
+  window.location.href = document.getElementById("googleLoginLink").href;
+
+  // Optional error handling
   setTimeout(() => {
-    alert(
-      "Google Sign-In successful! In a real app, this would integrate with Google OAuth."
-    );
-    googleBtn.innerHTML = originalContent;
-    googleBtn.disabled = false;
-  }, 2000);
+    if (!document.hidden) {
+      // If redirect failed
+      googleBtn.innerHTML = originalContent;
+      googleBtn.disabled = false;
+      console.error("Redirect to Google OAuth failed");
+    }
+  }, 1000);
 }
 
 // Forgot password simulation
@@ -82,11 +88,6 @@ function showForgotPassword() {
   if (email) {
     alert("Password reset link sent to " + email + "! Check your inbox.");
   }
-}
-
-// Sign up simulation
-function showSignup() {
-  alert("Sign up functionality would redirect to registration page.");
 }
 
 // Add floating animation to decorative elements

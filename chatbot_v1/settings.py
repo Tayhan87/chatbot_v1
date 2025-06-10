@@ -39,14 +39,17 @@ SOCIALACCOUNT_PROVIDERS = {
             "email",
             "https://www.googleapis.com/auth/drive"
         ],
-        "AUTH_PARAMS":{"access_type":"online"}
+        "AUTH_PARAMS":{
+            "access_type":"offline",# This is the key to getting a refresh token
+            "prompt":"consent"  # Optional: Forces the consent screen every time
+            },
+            'OAUTH_PKCE_ENABLED': True,  # Enable PKCE for enhanced security
     }
 }
 
 # ACCOUNT_EMAIL_REQUIRED = True
 # ACCOUNT_USERNAME_REQUIRED = False
 # ACCOUNT_AUTHENTICATION_METHOD = 'email'
-
 # ACCOUNT_DEFAULT_HTTP_PROTOCOL = 'http'  # For development
 # SESSION_COOKIE_SECURE = False  # For development
 # CSRF_COOKIE_SECURE = False  
@@ -65,6 +68,8 @@ MIDDLEWARE = [
 
     'allauth.account.middleware.AccountMiddleware',
 ]
+
+AUTH_USER_MODEL = 'app.Person'
 
 ROOT_URLCONF = 'chatbot_v1.urls'
 
@@ -123,7 +128,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Dhaka'
 
 USE_I18N = True
 

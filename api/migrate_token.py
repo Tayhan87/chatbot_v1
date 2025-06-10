@@ -30,4 +30,4 @@ class Command(BaseCommand):
                 GoogleDriveToken.from_credentials(user, creds)
                 self.stdout.write(f"Successfully migrated token for user {user.username}")
             except Exception as e:
-                self.stderr.write("Error migrating {token_file}:{str(e)}")git 
+                self.stderr.write("Error migrating {token_file}:{str(e)}")
