@@ -7,7 +7,14 @@ from app.models import Person
 import json
 
 from google import genai
-from chatbot_v1.utils import manage_folder,list_of_folders
+from chatbot_v1.drive import manage_folder,list_of_folders
+from chatbot_v1.calendar import create_google_calendar_event
+
+def index(request):
+    if request.user.is_authenticated:
+        return redirect('chatbot')
+    else:
+        return redirect('login_page')
 
 @csrf_exempt
 def chat_api(request):
@@ -89,3 +96,25 @@ def eventadd(request):
 
 def mngmeeting(request):
     return render(request,"app/mngmeeting.html")
+
+def setmeeting(request):
+    if request.method == "POST":
+        data=json.loads(request.body)
+        meeting_info ={
+        "meeting_title" : data.get("title", " ").strip(),
+        "meeting_date" : data.get("date"," ").strip(),
+        "meeting_time" : data.get("time"," ").strip(),
+        "meeting_link" : data.get("link"," ").strip(),
+        "meeting_folder" : data.get("folder", " ").strip(),
+        "meeting_description" : data.get("description", " ").strip(),
+        "meeting_folder" : data.get("folder", " ").strip(),
+        }
+        create_google_calendar_event(request.user.email, meeting_info)
+
+        print(meeting_info["meeting_time"])
+        print(meeting_info['meeting_date'])
+        print(meeting_info["meeting_folder"])
+
+
+
+    return JsonResponse({"message": "Meeting title received", }, status=200)

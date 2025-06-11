@@ -50,7 +50,7 @@ class MeetingManager {
     try {
       const url = this.currentEditingId
         ? `/api/meetings/${this.currentEditingId}/`
-        : "/api/meetings/";
+        : "/setmeeting/";
 
       const method = this.currentEditingId ? "PUT" : "POST";
 
