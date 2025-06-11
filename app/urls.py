@@ -5,9 +5,9 @@ urlpatterns = [
     # path('',views.index, name='index'),
     path('chat_api/', views.chat_api, name='chat_api'),
     path('login/',views.loginpage,name='login_page'),
-    path("test/",views.test,name='test'),
     path("signout/",views.signout,name='signout'),
-    path('logut/',views.logout_view,name='logout'),
     path('chatbot/', views.chatbot, name='chatbot'),
     path('signup/', views.signup, name='signup'),
+    path('eventadd/',views.eventadd, name='eventadd'),
+    path('mngmeeting/', views.mngmeeting, name='mngmeeting'),
 ]

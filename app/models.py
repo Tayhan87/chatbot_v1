@@ -12,59 +12,59 @@ def parse_google_datetime(dt_str):
     except ValueError:
         return datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%f")
 
-class GoogleDriveToken(models.Model):
-    user = models.OneToOneField('Person' , on_delete=models.CASCADE)
-    access_token = models.TextField(null=False , blank=False)
-    refresh_token = models.TextField(null=True , blank=True)
-    token_uri = models.TextField(default="https://oauth2.googleapis.com/token")
-    client_id = models.TextField(null=False , blank=False)
-    client_secret = models.TextField(null=False , blank=False)
-    scopes = models.TextField()
-    expiry = models.DateTimeField()
+# class GoogleDriveToken(models.Model):
+#     user = models.OneToOneField('Person' , on_delete=models.CASCADE)
+#     access_token = models.TextField(null=False , blank=False)
+#     refresh_token = models.TextField(null=True , blank=True)
+#     token_uri = models.TextField(default="https://oauth2.googleapis.com/token")
+#     client_id = models.TextField(null=False , blank=False)
+#     client_secret = models.TextField(null=False , blank=False)
+#     scopes = models.TextField()
+#     expiry = models.DateTimeField()
 
-    def __str__(self):
-        return f"Google Drive Token for {self.user.username}"
+#     def __str__(self):
+#         return f"Google Drive Token for {self.user.username}"
 
-    @classmethod
-    def from_credentials(cls,user,credentials):
-        expiry = credentials.expiry
-        if expiry and  not timezone.is_aware(expiry):
-            expiry = timezone.make_aware(expiry)
+#     @classmethod
+#     def from_credentials(cls,user,credentials):
+#         expiry = credentials.expiry
+#         if expiry and  not timezone.is_aware(expiry):
+#             expiry = timezone.make_aware(expiry)
 
-        if not credentials.refresh_token:
-            print("⚠️ Warning: No refresh_token received. Future refresh will fail.")
+#         if not credentials.refresh_token:
+#             print("⚠️ Warning: No refresh_token received. Future refresh will fail.")
 
 
-        return cls.objects.update_or_create(
-            user=user,
-            defaults={
-                'access_token':credentials.token,
-                'refresh_token':credentials.refresh_token,
-                'token_uri':credentials.token_uri,
-                'client_id' : credentials.client_id,
-                'client_secret' : credentials.client_secret,
-                'scopes' : ','.join(credentials.scopes),
-                'expiry' : expiry
-            }
-        )
+#         return cls.objects.update_or_create(
+#             user=user,
+#             defaults={
+#                 'access_token':credentials.token,
+#                 'refresh_token':credentials.refresh_token,
+#                 'token_uri':credentials.token_uri,
+#                 'client_id' : credentials.client_id,
+#                 'client_secret' : credentials.client_secret,
+#                 'scopes' : ','.join(credentials.scopes),
+#                 'expiry' : expiry
+#             }
+#         )
     
-    def to_credentials(self):
-        try:
-            expiry = self.expiry
-            if timezone.is_aware(expiry):
-                expiry = timezone.make_naive(expiry)
+#     def to_credentials(self):
+#         try:
+#             expiry = self.expiry
+#             if timezone.is_aware(expiry):
+#                 expiry = timezone.make_naive(expiry)
 
-            return Credentials(
-              token = self.access_token,
-              refresh_token = self.refresh_token,
-              token_uri =self.token_uri,
-              client_id = self.client_id,
-              client_secret = self.client_secret,
-              scopes = self.scopes.split(','),
-              expiry = timezone.make_naive(self.expiry) if timezone.is_aware(self.expiry) else self.expiry )
+#             return Credentials(
+#               token = self.access_token,
+#               refresh_token = self.refresh_token,
+#               token_uri =self.token_uri,
+#               client_id = self.client_id,
+#               client_secret = self.client_secret,
+#               scopes = self.scopes.split(','),
+#               expiry = timezone.make_naive(self.expiry) if timezone.is_aware(self.expiry) else self.expiry )
            
-        except Exception as e:
-            raise ValueError(f"Invalid conversion failed:{str(e)}")
+#         except Exception as e:
+#             raise ValueError(f"Invalid conversion failed:{str(e)}")
         
 
 class PersonManager(BaseUserManager):
@@ -86,6 +86,7 @@ class Person(AbstractUser):
 
     email = models.EmailField(unique=True, null=False,blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    username= models.CharField(max_length=150 , unique = False, null = True , blank = True)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

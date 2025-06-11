@@ -1,11 +1,12 @@
 # You can place this in a utils.py file in your app, or directly in views.py
-from allauth.socialaccount.models import SocialToken
+from allauth.socialaccount.models import SocialToken,SocialAccount
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from django.conf import settings # To get your client_id and secret
 from googleapiclient.errors import HttpError
 
+from app.models import Person
 
 
 def get_drive_service(user):
@@ -15,7 +16,12 @@ def get_drive_service(user):
     """
     try:
         # 1. Get the token from the database for the logged-in user
-        social_token = SocialToken.objects.get(account__user=user, account__provider='google')
+        social_account = SocialAccount.objects.get(user=user, provider='google')
+        if not social_account:
+            print(f"No Google account found for user {user.email}. They may need to log in and authorize.")
+            return None
+        social_token = SocialToken.objects.get(account=social_account)
+ 
 
         # 2. Get your app's client ID and secret from settings
         #    You configure these in the Django Admin under "Social Applications"
@@ -79,7 +85,7 @@ def search_folder(user,folder_name):
             return False
         else:
             print(f"Found folder: {folders[0]['name']} with ID: {folders[0]['id']}")
-            return True
+            return folders[0]
     except HttpError as error:
         print(f"Drive API Error: {error}")
         return None
@@ -91,6 +97,11 @@ def create_folder(user, folder_name, parent_id=None):
     """Create folder in user's Drive"""
     try:
         service = get_drive_service(user)
+
+        if not service:
+            print("Google Drive service could not be initialized.")
+            return None  # Prevents further code from breaking
+        
         metadata = {
             'name': folder_name,
             'mimeType': 'application/vnd.google-apps.folder'
@@ -108,18 +119,70 @@ def create_folder(user, folder_name, parent_id=None):
         return None
     
 
+
+def list_of_folders(email):
+    try:
+
+        user = Person.objects.get(email=email)
+        service= get_drive_service(user)
+
+        folder = search_folder(user, "Mercy Of Allah")
+
+        if not folder:
+            print("No folder found to list subfolders.")
+            return []
+        parent_folder_id = folder['id']
+        query = (
+            f"mimeType= 'application/vnd.google-apps.folder' and"
+            f"'{parent_folder_id}' in parents and "
+            "trashed=false"
+        )
+
+        response =  service.files().list(
+            q=query,
+            pageSize=10,
+            fields="nextPageToken, files(id,name)"
+        ).execute()
+
+        return response.get('files', [])
+    
+    except HttpError as error:
+        print(f"Google Api error: {error}")
+        return []
+    except Exception as e:
+        print(f"An unexpected error occurred while listing folders: {e}")
+        return []
+
+
+
+
+
 def manage_folder(email):
     print(f"Managing folder for user: {email}")
     try:
         user = Person.objects.get(email=email)
-        folder_id = search_folder(user, "Test Folder")
-        if folder_id:
-            print(f"Found folder with ID: {folder_id}")
+        
+        # Get the drive service
+        service = get_drive_service(user)
+
+        # --- ADD THIS CHECK ---
+        # If the service is None, it means the user has no Google token.
+        if not service:
+            print(f"Cannot manage folder because user {email} has not authenticated with Google.")
+            return # Stop execution to prevent a crash
+        # --- END OF CHECK ---
+
+        folder_exists = search_folder(user, "Mercy Of Allah")
+        if folder_exists:
+            print(f"Found folder for user: {email}")
+
         else:
             print("Folder not found, creating new one...")
-            folder_id = create_folder(user, "Test Folder")
-            print(f"Created folder with ID: {folder_id}")
+            folder_id = create_folder(user, "Mercy Of Allah")
+            if folder_id:
+                print(f"Created folder with ID: {folder_id}")
+
     except Person.DoesNotExist:
         print("User with this email doesn't exist")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An unexpected error occurred in manage_folder: {e}")

@@ -44,11 +44,6 @@ class ChatInterface {
       this.handleLogout();
     });
 
-    // Custom button functionality
-    this.customButton.addEventListener("click", () => {
-      this.handleCustomButton();
-    });
-
     // Voice button functionality
     this.voiceButton.addEventListener("click", () => {
       this.toggleVoiceInput();
@@ -103,11 +98,6 @@ class ChatInterface {
                         <span>Logout</span>
                     `;
     }
-  }
-
-  handleCustomButton() {
-    // Add your custom button functionality here
-    alert("Custom button clicked! Add your functionality here.");
   }
 
   initSpeechRecognition() {

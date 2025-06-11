@@ -33,19 +33,29 @@ INSTALLED_APPS = [
 ]
 
 SOCIALACCOUNT_PROVIDERS = {
-    "google":{
-        "SCOPE":[
-            "profile",
-            "email",
-            "https://www.googleapis.com/auth/drive"
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/drive.file',
         ],
-        "AUTH_PARAMS":{
-            "access_type":"offline",# This is the key to getting a refresh token
-            "prompt":"consent"  # Optional: Forces the consent screen every time
-            },
-            'OAUTH_PKCE_ENABLED': True,  # Enable PKCE for enhanced security
+        'AUTH_PARAMS': {
+            'access_type': 'offline',
+            'prompt': 'consent',
+        }
     }
 }
+
+
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_SIGNUP_FIELDS = ['email']
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_STORE_TOKENS = True  # Crucial for token saving
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # ACCOUNT_EMAIL_REQUIRED = True
 # ACCOUNT_USERNAME_REQUIRED = False

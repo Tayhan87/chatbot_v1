@@ -1,0 +1,189 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Meeting Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="{% static 'css/eventadd.css' %}" />
+  </head>
+  <body class="min-h-screen bg-image">
+    <!-- Dark overlay for better contrast -->
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-60"></div>
+
+    <div class="relative z-10 max-w-4xl mx-auto p-6">
+      <!-- Header -->
+      <div class="glass-effect rounded-lg p-6 mb-6">
+        <div class="flex justify-between items-center">
+          <div>
+            <h1 class="text-3xl font-bold text-white mb-2">Meeting Manager</h1>
+            <p class="text-gray-300">
+              Manage your meetings with Google Calendar integration
+            </p>
+          </div>
+          <button
+            id="addMeetingBtn"
+            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
+          >
+            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+            </svg>
+            Add Meeting
+          </button>
+        </div>
+      </div>
+
+      <!-- Upcoming Meetings -->
+      <div class="glass-effect rounded-lg p-6 mb-6">
+        <div class="flex items-center mb-4">
+          <h2 class="text-xl font-bold text-white">Upcoming Meetings</h2>
+          <span
+            class="ml-3 bg-green-500 text-white px-2 py-1 rounded-full text-sm"
+            id="upcomingCount"
+            >0</span
+          >
+        </div>
+        <div id="upcomingMeetings" class="space-y-3">
+          <!-- Upcoming meetings will be populated here -->
+        </div>
+      </div>
+
+      <!-- Past Meetings -->
+      <div class="glass-effect rounded-lg p-6">
+        <div class="flex items-center mb-4">
+          <h2 class="text-xl font-bold text-white">Past Meetings</h2>
+          <span
+            class="ml-3 bg-gray-500 text-white px-2 py-1 rounded-full text-sm"
+            id="pastCount"
+            >0</span
+          >
+        </div>
+        <div id="pastMeetings" class="space-y-3">
+          <!-- Past meetings will be populated here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Add/Edit Meeting Modal -->
+    <div
+      id="meetingModal"
+      class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50"
+    >
+      <div class="glass-effect rounded-lg p-6 w-full max-w-lg">
+        <div class="flex justify-between items-center mb-4">
+          <h3 id="modalTitle" class="text-lg font-bold text-white">
+            Add Meeting
+          </h3>
+          <button id="closeModal" class="text-gray-400 hover:text-white">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <form id="meetingForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1"
+              >Meeting Title</label
+            >
+            <input
+              type="text"
+              id="meetingTitle"
+              required
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
+              placeholder="Enter meeting title"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1"
+                >Date</label
+              >
+              <input
+                type="date"
+                id="meetingDate"
+                required
+                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-300 mb-1"
+                >Time</label
+              >
+              <input
+                type="time"
+                id="meetingTime"
+                required
+                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1"
+              >Meeting Link</label
+            >
+            <input
+              type="url"
+              id="meetingLink"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
+              placeholder="https://zoom.us/j/... or https://meet.google.com/..."
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1"
+              >Information Folder</label
+            >
+            <select
+              id="meetingFolder"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
+            >
+              <option value="">Select folder for information extraction</option>
+
+              {% for folder in folders %}
+              <option value="{{ folder.id }}">{{ folder.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1"
+              >Description (Optional)</label
+            >
+            <textarea
+              id="meetingDescription"
+              rows="3"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500 resize-none"
+              placeholder="Meeting agenda or additional notes..."
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              id="cancelBtn"
+              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              id="submitBtn"
+              class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
+            >
+              Save Meeting
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="{% static 'scripts/eventadd.js' %}"></script>
+  </body>
+</html>

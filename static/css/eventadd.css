@@ -1,0 +1,25 @@
+.bg-image {
+  background-image: url("https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.glass-effect {
+  background: rgba(17, 24, 39, 0.9);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(55, 65, 81, 0.5);
+}
+
+.meeting-card {
+  background: rgba(31, 41, 55, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  transition: all 0.3s ease;
+}
+
+.meeting-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(79, 193, 233, 0.2);
+  border-color: rgba(79, 193, 233, 0.5);
+}

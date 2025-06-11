@@ -5,9 +5,9 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from app.models import Person
 import json
-from app.models import GoogleDriveToken
+
 from google import genai
-from api.demo import manage_folder
+from chatbot_v1.utils import manage_folder,list_of_folders
 
 @csrf_exempt
 def chat_api(request):
@@ -24,29 +24,24 @@ def chat_api(request):
 
         print(response.text)
 
-        # Dummy reply (replace with OpenAI call)
         bot_response = response.text if response and hasattr(response, 'text') else "I'm not sure how to respond to that."
 
         return JsonResponse({'response': bot_response})
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
-# def index(request):
-#     print("Rendering index page")
-#     return render(request, 'app/index.html')
 
 def loginpage(request):
     return render(request,"app/loginpage.html")
 
 @login_required
 def chatbot(request):
+    print(dict(request.session))
     print("Rendering chatbot page")
     email=request.user.email
     manage_folder(email)
     return render(request, 'app/chatbot.html')
 
-def test(request):
-    return render(request,"app/test.html")
 
 @csrf_exempt
 def signout(request):
@@ -55,9 +50,6 @@ def signout(request):
         return JsonResponse({"message":"Grant to Logout"}, status=200)
 
 
-def logout_view(request):
-    logout(request)
-    return redirect("login_page")
 
 @csrf_exempt
 def signup(request):
@@ -85,3 +77,15 @@ def signup(request):
         )
         return JsonResponse({"success": "User created successfully"},status=201)
     return render(request,"app/signup.html")
+
+def eventadd(request):
+    folders= list_of_folders(request.user.email)
+    if not folders:
+        print("No folders found for the user.")
+        folders = []  # Ensure folders is always a list
+    else:
+        print(f"Found {len(folders)} folders for the user.")
+    return render(request,"app/eventadd.html",{'folders': folders})
+
+def mngmeeting(request):
+    return render(request,"app/mngmeeting.html")
