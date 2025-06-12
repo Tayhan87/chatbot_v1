@@ -62,7 +62,6 @@ def create_google_calendar_event(email, meeting_info):
         duration_minutes: Meeting duration in minutes
         timezone: Timezone string (default: 'UTC')
         description: Meeting description (optional)
-        attendees: List of email addresses to invite (optional)
     
     Returns:
         Event ID if successful, None otherwise
@@ -118,6 +117,8 @@ def create_google_calendar_event(email, meeting_info):
     except Exception as e:
         print(f"Unexpected error creating calendar event: {e}")
         return None
+    
+    
     
 def update_google_calendar_event(event_id,email,meeting_info):
         """
@@ -179,3 +180,37 @@ def update_google_calendar_event(event_id,email,meeting_info):
         except Exception as e:
             print(f"Unexpected error updating calendar event: {e}")
             return None
+        
+
+def delete_google_calendar_event(email, event_id):
+    """
+    Delete a Google Calendar event
+    
+    Args:
+        email: User's email address
+        event_id: The ID of the event to delete
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    # Get the calendar service
+    user = Person.objects.get(email=email)
+
+    service = get_calendar_service(user)
+    if not service:
+        return False
+
+    try:
+        service.events().delete(
+            calendarId='primary',
+            eventId=event_id
+        ).execute()
+        print(f"Event {event_id} deleted successfully.")
+        return True
+
+    except HttpError as error:
+        print(f"Google API error occurred: {error}")
+        return False
+    except Exception as e:
+        print(f"Unexpected error deleting calendar event: {e}")
+        return False

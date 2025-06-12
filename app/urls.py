@@ -12,4 +12,7 @@ urlpatterns = [
     path('mngmeeting/', views.mngmeeting, name='mngmeeting'),
     path('setmeeting/', views.setmeeting, name='setmeeting'),
     path('showmeeting/', views.showmeetings, name='showmeeting'),
+    path('editevent/<str:event_id>/', views.editevent, name='editevent'),
+    path('deleteevent/<str:event_id>/',views.deleteevent, name='deleteevent'),
+    path('folderList/',views.folderList,name="folderList"),
 ]

@@ -1,9 +1,11 @@
 class MeetingManager {
   constructor() {
     this.meetings = [];
+    this.folders = [];
     this.currentEditingId = null;
     this.init();
-    this.loadMeetings();
+    // this.loadMeetings();
+    this.folderList().then(() => this.loadMeetings());
   }
 
   init() {
@@ -31,12 +33,14 @@ class MeetingManager {
           "X-CSRFToken": this.getCSRFToken(),
         },
       });
-      console.log("Response from backend:", response);
+      // console.log("Response from backend:", response);
 
       if (response.ok) {
         const data = await response.json();
         this.meetings = data.events;
-        console.log(this.meetings); // 1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+        console.log(this.meetings);
+        console.log("Hello World");
+        // await this.folderList();
         this.renderMeetings();
       } else {
         // Fallback to sample data for demo
@@ -52,7 +56,7 @@ class MeetingManager {
   async saveMeeting(meetingData) {
     try {
       const url = this.currentEditingId
-        ? `/api/meetings/${this.currentEditingId}/`
+        ? `/editevent/${this.currentEditingId}/`
         : "/setmeeting/";
 
       const method = this.currentEditingId ? "PUT" : "POST";
@@ -82,7 +86,7 @@ class MeetingManager {
           this.meetings.push(savedMeeting);
         }
 
-        this.renderMeetings();
+        this.renderMeetings(); //111111111111111111111111111111111111111111111111111111
         return true;
       } else {
         alert("Failed to save meeting. Please try again.");
@@ -100,7 +104,7 @@ class MeetingManager {
     if (!confirm("Delete this meeting?")) return;
 
     try {
-      const response = await fetch(`/api/meetings/${id}/`, {
+      const response = await fetch(`/deleteevent/${id}/`, {
         method: "DELETE",
         headers: {
           "X-CSRFToken": this.getCSRFToken(),
@@ -109,7 +113,7 @@ class MeetingManager {
 
       if (response.ok) {
         this.meetings = this.meetings.filter((m) => m.id !== id);
-        this.renderMeetings();
+        this.renderMeetings(); //1111111111111111111111111111111111111111111111111
       } else {
         alert("Failed to delete meeting. Please try again.");
       }
@@ -184,20 +188,36 @@ class MeetingManager {
     document.getElementById("meetingModal").classList.remove("hidden");
   }
 
+  // In eventadd.js
   openEditModal(id) {
-    const meeting = this.meetings.find((m) => m.id === id);
-    if (!meeting) return;
+    // Use loose equality (==) to match string ID with a potential number ID
+    const meeting = this.meetings.find((m) => m.id == id);
+    if (!meeting) {
+      console.error("Meeting not found for ID:", id);
+      return;
+    }
+
+    let displayTime = meeting.time;
+    let timeStr = new Date(displayTime);
+    const options = {
+      timeZone: "Asia/Dhaka",
+      hour: "numeric",
+      minute: "2-digit",
+      // second: "2-digit",
+      hourCycle: "h23",
+    };
+    console.log(meeting.folder);
+    let stime = timeStr.toLocaleTimeString("en-US", options).slice(0, 5);
 
     document.getElementById("modalTitle").textContent = "Edit Meeting";
     document.getElementById("submitBtn").textContent = "Update Meeting";
     document.getElementById("meetingTitle").value = meeting.title;
     document.getElementById("meetingDate").value = meeting.date;
-    document.getElementById("meetingTime").value = meeting.time;
+    document.getElementById("meetingTime").value = stime;
     document.getElementById("meetingLink").value = meeting.link || "";
     document.getElementById("meetingFolder").value = meeting.folder || "";
     document.getElementById("meetingDescription").value =
       meeting.description || "";
-
     this.currentEditingId = id;
     document.getElementById("meetingModal").classList.remove("hidden");
   }
@@ -236,25 +256,50 @@ class MeetingManager {
   }
 
   formatTime(timeStr) {
-    const [hours, minutes] = timeStr.split(":");
-    const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
-    return date.toLocaleTimeString("en-US", {
+    const utcDate = new Date(timeStr);
+
+    // Convert to Bangladesh time (UTC+6)
+    const options = {
+      timeZone: "Asia/Dhaka",
       hour: "numeric",
       minute: "2-digit",
+      // second: "2-digit",
       hour12: true,
-    });
+    };
+
+    return utcDate.toLocaleTimeString("en-US", options);
+  }
+
+  async folderList() {
+    try {
+      const response = await fetch("/folderList/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": this.getCSRFToken(),
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(data);
+        this.folders = data.folders;
+        console.log(this.folders);
+
+        const folder = this.folders.find((info) => info.id == folderValue);
+        return folder ? folder.name : "No Folder";
+      } else {
+        console.log("Failed to fetch folder information.");
+      }
+    } catch (error) {
+      console.log("Didn't get any folder information", error);
+    }
   }
 
   getFolderDisplayName(folderValue) {
-    const folderMap = {
-      "project-alpha": "Project Alpha",
-      "client-meetings": "Client Meetings",
-      "team-updates": "Team Updates",
-      "quarterly-reviews": "Quarterly Reviews",
-      general: "General",
-    };
-    return folderMap[folderValue] || "No Folder";
+    // Use `find` instead of `forEach` for searching the folder
+    const folder = this.folders.find((info) => info.id == folderValue);
+    return folder ? folder.name : "No Folder";
   }
 
   renderMeetings() {
@@ -264,6 +309,7 @@ class MeetingManager {
 
     const upcoming = this.meetings
       .filter((meeting) => {
+        let meetingTime = meeting.date;
         if (meeting.date > today) return true;
         if (meeting.date === today && meeting.time > currentTime) return true;
         return false;
@@ -291,6 +337,7 @@ class MeetingManager {
     this.renderMeetingList("pastMeetings", past, false);
   }
 
+  // In eventadd.js
   renderMeetingList(containerId, meetings, isUpcoming) {
     const container = document.getElementById(containerId);
 
@@ -302,80 +349,81 @@ class MeetingManager {
 
     container.innerHTML = meetings
       .map(
-        (meeting) => `
-                    <div class="meeting-card rounded-lg p-4">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <h4 class="text-white font-medium text-lg">${
-                                  meeting.title
-                                }</h4>
-                                <div class="text-gray-300 text-sm mt-1">
-                                    ${this.formatDate(
-                                      meeting.date
-                                    )} at ${this.formatTime(meeting.time)}
-                                </div>
-                                ${
-                                  meeting.folder
-                                    ? `
-                                    <div class="text-blue-300 text-xs mt-1">
-                                        📁 ${this.getFolderDisplayName(
-                                          meeting.folder
-                                        )}
-                                    </div>
-                                `
-                                    : ""
-                                }
-                                ${
-                                  meeting.description
-                                    ? `
-                                    <div class="text-gray-400 text-sm mt-2">${meeting.description}</div>
-                                `
-                                    : ""
-                                }
-                                ${
-                                  meeting.link
-                                    ? `
-                                    <a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-2 transition-colors">
-                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
-                                        </svg>
-                                        Join Meeting
-                                    </a>
-                                `
-                                    : ""
-                                }
-                            </div>
-                            <div class="flex space-x-2 ml-4">
-                                ${
-                                  isUpcoming
-                                    ? `
-                                    <button 
-                                        onclick="meetingManager.openEditModal(${meeting.id})"
-                                        class="text-blue-400 hover:text-blue-300 transition-colors"
-                                        title="Edit Meeting"
-                                    >
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                                        </svg>
-                                    </button>
-                                `
-                                    : ""
-                                }
-                                <button 
-                                    onclick="meetingManager.deleteMeeting(${
-                                      meeting.id
-                                    })"
-                                    class="text-gray-400 hover:text-red-400 transition-colors"
-                                    title="Delete Meeting"
-                                >
-                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
-                                    </svg>
-                                </button>
-                            </div>
+        (meeting) =>
+          `
+            <div class="meeting-card rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h4 class="text-white font-medium text-lg">${
+                          meeting.title
+                        }</h4>
+                        <div class="text-gray-300 text-sm mt-1">
+                            ${this.formatDate(
+                              meeting.date
+                            )} at ${this.formatTime(meeting.time)}
                         </div>
+                        ${
+                          meeting.folder
+                            ? `
+                            <div class="text-blue-300 text-xs mt-1">
+                                📁 ${this.getFolderDisplayName(meeting.folder)}
+                            </div>
+                        `
+                            : ""
+                        }
+                        ${
+                          meeting.description
+                            ? `
+                            <div class="text-gray-400 text-sm mt-2">${meeting.description}</div>
+                        `
+                            : ""
+                        }
+                        ${
+                          meeting.link
+                            ? `
+                            <a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-2 transition-colors">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
+                                </svg>
+                                Join Meeting
+                            </a>
+                        `
+                            : ""
+                        }
                     </div>
-                `
+                    <div class="flex space-x-2 ml-4">
+                        ${/* --- START OF FIX --- */ ""}
+                        ${
+                          isUpcoming
+                            ? `
+                            <button 
+                                onclick="meetingManager.openEditModal('${meeting.id}')"
+                                class="text-blue-400 m-5 hover:text-blue-300 transition-colors"
+                                title="Edit Meeting"
+                            >
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            </button>
+                        `
+                            : ""
+                        }
+                        <button 
+                            onclick="meetingManager.deleteMeeting('${
+                              meeting.id
+                            }')"
+                            class="text-gray-400 m-5 hover:text-red-400 transition-colors"
+                            title="Delete Meeting"
+                        >
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
+                            </svg>
+                        </button>
+                        ${/* --- END OF FIX --- */ ""}
+                    </div>
+                </div>
+            </div>
+        `
       )
       .join("");
   }

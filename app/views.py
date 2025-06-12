@@ -10,7 +10,7 @@ import pytz
 
 from google import genai
 from chatbot_v1.drive import manage_folder,list_of_folders
-from chatbot_v1.calendar import create_google_calendar_event
+from chatbot_v1.calendar import create_google_calendar_event , update_google_calendar_event , delete_google_calendar_event
 
 def index(request):
     if request.user.is_authenticated:
@@ -97,6 +97,17 @@ def eventadd(request):
 
     return render(request,"app/eventadd.html",{'folders': folders})
 
+def folderList(request):
+    if request.method=="POST":
+        folders= list_of_folders(request.user.email)
+        if not folders:
+            print("No folders found for the user.")
+            folders = []  # Ensure folders is always a list
+        else:
+            print(f"Found {len(folders)} folders for the user.")
+
+        return JsonResponse({"folders":folders},status=200)
+
 
 
 def mngmeeting(request):
@@ -157,13 +168,80 @@ def showmeetings(request):
                 'id': event.event_id,
                 'title': event.title,
                 'time': event.start_time.isoformat(),
-                'end_time': event.end_time.isoformat(),
                 'date': event.date.isoformat(),
                 'description': event.description,
                 'folder': event.folder,
                 'link' : event.link  # Google Calendar event ID
             })
+        
+        print(events_data)
 
         return JsonResponse({'events': events_data}, status=200)
+
+def editevent(request,event_id):
+    if request.method=="PUT":
+        event= CalendarEvent.objects.get(event_id=event_id, user=request.user)
+
+        data= json.loads(request.body)
+
+        stime=data.get("time"," ").strip()
+        sdate=data.get("date"," ").strip()
+
+        naive_datetime = datetime.strptime(f"{sdate} {stime}", "%Y-%m-%d %H:%M")
+        tz = pytz.timezone("Asia/Dhaka")
+        aware_datetime = tz.localize(naive_datetime)
+        start_iso = aware_datetime.isoformat()
+        end_time = aware_datetime + timedelta(minutes=60)
+        end_iso = end_time.isoformat()
+
+        meeting_info ={
+        "meeting_title" : data.get("title", " ").strip(),
+        "meeting_date" : data.get("date"," ").strip(),
+        "meeting_start_time" : start_iso,
+        "meeting_end_time" : end_iso,
+        "meeting_link" : data.get("link"," ").strip(),
+        "meeting_folder" : data.get("folder", " ").strip(),
+        "meeting_description" : data.get("description", " ").strip(),
+        "meeting_folder" : data.get("folder", " ").strip(),
+        }
+
+        try: 
+                update_google_calendar_event(event.event_id, request.user.email, meeting_info)
+
+                event.title = data.get("title", " ").strip()
+                event.start_time = start_iso
+                event.end_time = end_iso
+                event.description = data.get("description", " ").strip()
+                event.folder =  data.get("folder", " ").strip()
+                event.date = data.get("date"," ").strip()
+                event.link = data.get("link"," ").strip()
+                event.save()
+
+                return JsonResponse({"message": "Event updated successfully"}, status=200)
+
+        except Exception as e:
+                print(f"Error updating event: {e}")
+                return JsonResponse({"error": "Failed to update event"}, status=500)
+        
+def deleteevent(request,event_id):
+    if request.method=="DELETE":
+        try:
+            event = CalendarEvent.objects.get(event_id=event_id, user=request.user)
+            event.delete()
+            delete_google_calendar_event(request.user.email,event_id)
+
+            print("Event deleted successfully.")
+
+            return JsonResponse({"message":"Event Deleted successfully"},status=200)
+        except CalendarEvent.DoesNotExist:
+            print("Event not found.")
+        except Exception as e:
+            print(f"Unexpected error deleting event: {e}")
+
+            return JsonResponse({"error":"Failed to delete event"})
+
+        
+
+
 
 
