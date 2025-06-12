@@ -24,19 +24,16 @@ class MeetingManager {
   // Load meetings from Django backend
   async loadMeetings() {
     try {
-      const response = await fetch("/showmeeting/", {
+      const response = await fetch("/api/meetings/", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           "X-CSRFToken": this.getCSRFToken(),
         },
       });
-      console.log("Response from backend:", response);
 
       if (response.ok) {
-        const data = await response.json();
-        this.meetings = data.events;
-        console.log(this.meetings); // 1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+        this.meetings = await response.json(); // 1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
         this.renderMeetings();
       } else {
         // Fallback to sample data for demo
@@ -222,7 +219,6 @@ class MeetingManager {
     const success = await this.saveMeeting(meetingData);
     if (success) {
       this.closeModal();
-      location.reload(true); // Reload to reflect changes
     }
   }
 
@@ -258,6 +254,7 @@ class MeetingManager {
   }
 
   renderMeetings() {
+    //111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
     const now = new Date();
     const today = now.toISOString().split("T")[0];
     const currentTime = now.toTimeString().split(" ")[0].substring(0, 5);

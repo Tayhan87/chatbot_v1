@@ -3,8 +3,10 @@ from django.contrib.auth import logout
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from app.models import Person
+from app.models import Person,CalendarEvent
+from datetime import timedelta, datetime
 import json
+import pytz
 
 from google import genai
 from chatbot_v1.drive import manage_folder,list_of_folders
@@ -92,14 +94,20 @@ def eventadd(request):
         folders = []  # Ensure folders is always a list
     else:
         print(f"Found {len(folders)} folders for the user.")
+
     return render(request,"app/eventadd.html",{'folders': folders})
+
+
 
 def mngmeeting(request):
     return render(request,"app/mngmeeting.html")
 
+
+
 def setmeeting(request):
     if request.method == "POST":
         data=json.loads(request.body)
+
         meeting_info ={
         "meeting_title" : data.get("title", " ").strip(),
         "meeting_date" : data.get("date"," ").strip(),
@@ -109,12 +117,53 @@ def setmeeting(request):
         "meeting_description" : data.get("description", " ").strip(),
         "meeting_folder" : data.get("folder", " ").strip(),
         }
-        create_google_calendar_event(request.user.email, meeting_info)
+
+        naive_datetime = datetime.strptime(f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}", "%Y-%m-%d %H:%M")
+        tz = pytz.timezone("Asia/Dhaka")
+        aware_datetime = tz.localize(naive_datetime)
+        start_iso = aware_datetime.isoformat()
+        end_time = aware_datetime + timedelta(minutes=60)
+        end_iso = end_time.isoformat()
+
+        meeting_info["meeting_start_time"] = start_iso
+        meeting_info["meeting_end_time"] = end_iso
+
+        event_id= create_google_calendar_event(request.user.email, meeting_info)
+        CalendarEvent.objects.create(
+            user=request.user,
+            title = meeting_info["meeting_title"],
+            start_time = start_iso,
+            end_time = end_iso , # Adjust as needed
+            description = meeting_info["meeting_description"],
+            folder = meeting_info["meeting_folder"],
+            date = meeting_info["meeting_date"],
+            event_id = event_id,  # Store the Google Calendar event ID
+            link = meeting_info["meeting_link"],
+        )
 
         print(meeting_info["meeting_time"])
         print(meeting_info['meeting_date'])
         print(meeting_info["meeting_folder"])
 
-
-
     return JsonResponse({"message": "Meeting title received", }, status=200)
+
+def showmeetings(request):
+    if request.method=='GET':
+        user=request.user
+        events = CalendarEvent.objects.filter(user=user)
+        events_data = []
+        for event in events:
+            events_data.append({
+                'id': event.event_id,
+                'title': event.title,
+                'time': event.start_time.isoformat(),
+                'end_time': event.end_time.isoformat(),
+                'date': event.date.isoformat(),
+                'description': event.description,
+                'folder': event.folder,
+                'link' : event.link  # Google Calendar event ID
+            })
+
+        return JsonResponse({'events': events_data}, status=200)
+
+

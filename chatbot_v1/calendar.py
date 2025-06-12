@@ -6,8 +6,7 @@ from google.auth.transport.requests import Request
 from django.conf import settings # To get your client_id and secret
 from googleapiclient.errors import HttpError
 import pytz
-from datetime import datetime
-from datetime import timedelta
+from datetime import datetime,timedelta
 from app.models import Person
 
 
@@ -76,23 +75,23 @@ def create_google_calendar_event(email, meeting_info):
         return None
 
     try:
-        naive_datetime = datetime.strptime(f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}", "%Y-%m-%d %H:%M")
-        tz = pytz.timezone("Asia/Dhaka")
-        aware_datetime = tz.localize(naive_datetime)
-        start_iso = aware_datetime.isoformat()
-        end_time = aware_datetime + timedelta(minutes=60)
-        end_iso = end_time.isoformat()
+        # naive_datetime = datetime.strptime(f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}", "%Y-%m-%d %H:%M")
+        # tz = pytz.timezone("Asia/Dhaka")
+        # aware_datetime = tz.localize(naive_datetime)
+        # start_iso = aware_datetime.isoformat()
+        # end_time = aware_datetime + timedelta(minutes=60)
+        # end_iso = end_time.isoformat()
         
         # Create event body
         event = {
             'summary': meeting_info["meeting_title"],
             'description': meeting_info["meeting_description"],
             'start': {
-                'dateTime': start_iso,
+                'dateTime': meeting_info["meeting_start_time"],
                 'timeZone': "Asia/Dhaka",
             },
             'end': {
-             'dateTime': end_iso,
+             'dateTime': meeting_info["meeting_end_time"],
              'timeZone': "Asia/Dhaka",
         },
 
@@ -119,3 +118,64 @@ def create_google_calendar_event(email, meeting_info):
     except Exception as e:
         print(f"Unexpected error creating calendar event: {e}")
         return None
+    
+def update_google_calendar_event(event_id,email,meeting_info):
+        """
+    Update an existing Google Calendar event
+    
+    Args:
+        event_id: ID of the Google Calendar event to update
+        email: Email of the user who owns the calendar
+        meeting_info: Dictionary with updated meeting data:
+            - meeting_title
+            - meeting_description
+            - meeting_start_time (ISO format)
+            - meeting_end_time (ISO format)
+    
+    Returns:
+        Updated event ID if successful, None otherwise
+    """
+        user = Person.objects.get(email=email)
+        service = get_calendar_service(user)
+        if not service:
+            return None
+
+        try:
+            # Fetch the existing event
+            event = service.events().get(calendarId='primary', eventId=event_id).execute()
+
+            # Update event details
+            event['summary'] = meeting_info.get("meeting_title", event.get('summary'))
+            event['description'] = meeting_info.get("meeting_description", event.get('description'))
+
+            event['start'] = {
+                'dateTime': meeting_info["meeting_start_time"],
+                'timeZone': "Asia/Dhaka",
+            }
+            event['end'] = {
+                'dateTime': meeting_info["meeting_end_time"],
+                'timeZone': "Asia/Dhaka",
+            }
+
+            event['reminders'] = {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 60},
+                ],
+            }
+
+            # Send update request
+            updated_event = service.events().update(
+                calendarId='primary',
+                eventId=event_id,
+                body=event
+            ).execute()
+
+            return updated_event.get('id')
+
+        except HttpError as error:
+            print(f"Google API error occurred: {error}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error updating calendar event: {e}")
+            return None

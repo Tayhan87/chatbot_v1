@@ -39,10 +39,12 @@ class CalendarEvent(models.Model):
     title = models.CharField(max_length=255)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
+    date = models.DateField(default=timezone.now)  # Date of the event
     created_at = models.DateTimeField(auto_now_add=True)
     description = models.TextField(blank=True, null=True)
-    eventid = models.CharField(max_length=255, blank=True, null=True)  # Google Calendar event ID
+    link = models.URLField(blank=True, null=True)  # Link to the event (e.g., Google Meet link)
     folder = models.CharField(max_length=255, blank=True, null=True)  # Folder for the event
+    event_id = models.CharField(max_length=255, blank=True, null=True)  # Google Calendar event ID
 
     def __str__(self):
         return f"{self.title} ({self.start_time} - {self.end_time})"

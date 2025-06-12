@@ -11,4 +11,5 @@ urlpatterns = [
     path('eventadd/',views.eventadd, name='eventadd'),
     path('mngmeeting/', views.mngmeeting, name='mngmeeting'),
     path('setmeeting/', views.setmeeting, name='setmeeting'),
+    path('showmeeting/', views.showmeetings, name='showmeeting'),
 ]
