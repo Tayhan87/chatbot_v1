@@ -56,3 +56,59 @@ class CalendarEvent(models.Model):
 
 
 
+class UploadedFile(models.Model):
+    """Model to track files uploaded to Google Drive"""
+    user = models.ForeignKey(Person, on_delete=models.CASCADE)
+    file_id = models.CharField(max_length=255, unique=True)  # Google Drive file ID
+    filename = models.CharField(max_length=255)
+    original_filename = models.CharField(max_length=255)  # Original filename from user's computer
+    mime_type = models.CharField(max_length=100)
+    file_size = models.BigIntegerField(null=True, blank=True)  # File size in bytes
+    folder_id = models.CharField(max_length=255)  # Google Drive folder ID
+    folder_name = models.CharField(max_length=255)  # Folder name for display
+    web_view_link = models.URLField(blank=True, null=True)  # Google Drive web view link
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    created_time = models.DateTimeField(null=True, blank=True)  # Google Drive creation time
+    
+    # File type categories
+    FILE_TYPE_CHOICES = [
+        ('document', 'Document'),
+        ('image', 'Image'),
+        ('video', 'Video'),
+        ('pdf', 'PDF'),
+        ('text', 'Text/HTML'),
+        ('other', 'Other'),
+    ]
+    file_type = models.CharField(max_length=20, choices=FILE_TYPE_CHOICES, default='other')
+    
+    def __str__(self):
+        return f"{self.filename} ({self.user.email})"
+    
+    def get_file_type_display_name(self):
+        """Get human-readable file type name"""
+        return dict(self.FILE_TYPE_CHOICES).get(self.file_type, 'Other')
+    
+    def get_file_size_display(self):
+        """Get human-readable file size"""
+        if self.file_size is None:
+            return "Unknown"
+        
+        size_bytes = int(self.file_size)
+
+        if size_bytes == 0:
+            return "0 B"
+
+        units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+        i = 0
+        size = float(size_bytes)
+        while size >= 1024 and i < len(units) - 1:
+            size /= 1024.0
+            i += 1
+        
+        if units[i] == 'B':
+            return f"{int(size)} {units[i]}"
+        else:
+            return f"{size:.2f} {units[i]}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']
