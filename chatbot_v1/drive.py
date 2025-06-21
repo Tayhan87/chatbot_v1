@@ -5,6 +5,10 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from django.conf import settings # To get your client_id and secret
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaFileUpload, MediaIoBaseUpload
+import mimetypes
+import os
+import io
 
 from app.models import Person
 
@@ -191,3 +195,236 @@ def manage_folder(email):
         print("User with this email doesn't exist")
     except Exception as e:
         print(f"An unexpected error occurred in manage_folder: {e}")
+
+def get_mime_type(filename):
+    """Get MIME type for a file based on its extension"""
+    mime_type, _ = mimetypes.guess_type(filename)
+    if mime_type is None:
+        # Default to binary if we can't determine the type
+        mime_type = 'application/octet-stream'
+    return mime_type
+
+def upload_file_to_drive(user, file_path, folder_id, filename=None):
+    """
+    Upload a file to a specific Google Drive folder
+    
+    Args:
+        user: Django user object
+        file_path: Path to the file to upload
+        folder_id: ID of the Google Drive folder to upload to
+        filename: Optional custom filename (if None, uses original filename)
+    
+    Returns:
+        Dictionary with file info if successful, None otherwise
+    """
+    try:
+        service = get_drive_service(user)
+        if not service:
+            print("Google Drive service could not be initialized.")
+            return None
+
+        # Use original filename if not specified
+        if filename is None:
+            filename = os.path.basename(file_path)
+
+        # Get MIME type
+        mime_type = get_mime_type(filename)
+
+        # File metadata
+        file_metadata = {
+            'name': filename,
+            'parents': [folder_id]
+        }
+
+        # Create media upload object
+        media = MediaFileUpload(file_path, mimetype=mime_type, resumable=True)
+
+        # Upload the file
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id,name,webViewLink,size,createdTime'
+        ).execute()
+
+        print(f"File uploaded successfully: {file.get('name')} (ID: {file.get('id')})")
+        return {
+            'id': file.get('id'),
+            'name': file.get('name'),
+            'webViewLink': file.get('webViewLink'),
+            'size': file.get('size'),
+            'createdTime': file.get('createdTime')
+        }
+
+    except HttpError as error:
+        print(f"Google Drive API error: {error}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error uploading file: {e}")
+        return None
+
+def upload_file_from_memory(user, file_content, filename, folder_id, mime_type=None):
+    """
+    Upload a file from memory (for uploaded files from web forms)
+    
+    Args:
+        user: Django user object
+        file_content: File content as bytes
+        filename: Name of the file
+        folder_id: ID of the Google Drive folder to upload to
+        mime_type: MIME type of the file (if None, will be guessed)
+    
+    Returns:
+        Dictionary with file info if successful, None otherwise
+    """
+    try:
+        service = get_drive_service(user)
+        if not service:
+            print("Google Drive service could not be initialized.")
+            return None
+
+        # Get MIME type if not provided
+        if mime_type is None:
+            mime_type = get_mime_type(filename)
+
+        # File metadata
+        file_metadata = {
+            'name': filename,
+            'parents': [folder_id]
+        }
+
+        # Create file-like object from content
+        file_stream = io.BytesIO(file_content)
+        
+        # Create media upload object
+        media = MediaIoBaseUpload(file_stream, mimetype=mime_type, resumable=True)
+
+        # Upload the file
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id,name,webViewLink,size,createdTime'
+        ).execute()
+
+        print(f"File uploaded successfully: {file.get('name')} (ID: {file.get('id')})")
+        return {
+            'id': file.get('id'),
+            'name': file.get('name'),
+            'webViewLink': file.get('webViewLink'),
+            'size': file.get('size'),
+            'createdTime': file.get('createdTime')
+        }
+
+    except HttpError as error:
+        print(f"Google Drive API error: {error}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error uploading file: {e}")
+        return None
+
+def get_folder_by_name(user, folder_name, parent_folder_id=None):
+    """
+    Get a folder by name, optionally within a parent folder
+    
+    Args:
+        user: Django user object
+        folder_name: Name of the folder to find
+        parent_folder_id: Optional parent folder ID to search within
+    
+    Returns:
+        Folder object if found, None otherwise
+    """
+    try:
+        service = get_drive_service(user)
+        if not service:
+            return None
+
+        # Build query
+        query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        if parent_folder_id:
+            query += f" and '{parent_folder_id}' in parents"
+
+        response = service.files().list(
+            q=query,
+            spaces='drive',
+            fields='files(id,name)'
+        ).execute()
+        
+        folders = response.get('files', [])
+        
+        if folders:
+            return folders[0]
+        else:
+            return None
+
+    except HttpError as error:
+        print(f"Drive API Error: {error}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error finding folder: {e}")
+        return None
+
+def create_subfolder_if_not_exists(user, folder_name, parent_folder_id):
+    """
+    Create a subfolder if it doesn't exist
+    
+    Args:
+        user: Django user object
+        folder_name: Name of the subfolder to create
+        parent_folder_id: ID of the parent folder
+    
+    Returns:
+        Folder ID if successful, None otherwise
+    """
+    try:
+        # Check if folder already exists
+        existing_folder = get_folder_by_name(user, folder_name, parent_folder_id)
+        if existing_folder:
+            print(f"Folder '{folder_name}' already exists with ID: {existing_folder['id']}")
+            return existing_folder['id']
+
+        # Create new folder
+        folder_id = create_folder(user, folder_name, parent_folder_id)
+        if folder_id:
+            print(f"Created folder '{folder_name}' with ID: {folder_id}")
+            return folder_id
+        else:
+            print(f"Failed to create folder '{folder_name}'")
+            return None
+
+    except Exception as e:
+        print(f"Error creating subfolder: {e}")
+        return None
+
+def list_files_in_folder(user, folder_id):
+    """
+    List all files in a specific folder
+    
+    Args:
+        user: Django user object
+        folder_id: ID of the folder to list files from
+    
+    Returns:
+        List of file objects
+    """
+    try:
+        service = get_drive_service(user)
+        if not service:
+            return []
+
+        query = f"'{folder_id}' in parents and trashed=false"
+        
+        response = service.files().list(
+            q=query,
+            spaces='drive',
+            fields='files(id,name,mimeType,size,createdTime,webViewLink)',
+            orderBy='createdTime desc'
+        ).execute()
+        
+        return response.get('files', [])
+
+    except HttpError as error:
+        print(f"Drive API Error: {error}")
+        return []
+    except Exception as e:
+        print(f"Unexpected error listing files: {e}")
+        return []

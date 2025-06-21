@@ -36,6 +36,16 @@
 
             <!-- Right side - Navigation buttons -->
             <div class="flex items-center space-x-3">
+
+              <!-- File Upload Button -->
+              <a href="{% url 'file_upload_page' %}"
+                class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold px-3 py-2 rounded-lg transition-all duration-300 btn-hover flex items-center space-x-2"
+              >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 3v5h5M16 13H8M16 17H8M10 9H8"/>
+                </svg>
+                <span>File Upload</span>
+              </a>
               <!-- Button -->
               <a href="{% url 'eventadd' %}"
                 class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold px-3 py-2 rounded-lg transition-all duration-300 btn-hover flex items-center space-x-2"
