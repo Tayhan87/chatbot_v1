@@ -5,7 +5,6 @@ class SignUpForm {
     this.emailInput = document.getElementById("email");
     this.passwordInput = document.getElementById("password");
     this.confirmPasswordInput = document.getElementById("confirmPassword");
-    this.termsCheckbox = document.getElementById("terms");
     this.signupButton = document.getElementById("signupButton");
     this.buttonText = document.getElementById("buttonText");
     this.buttonSpinner = document.getElementById("buttonSpinner");
@@ -209,11 +208,6 @@ class SignUpForm {
     const isPasswordValid = this.validatePassword();
     const isConfirmPasswordValid = this.validateConfirmPassword();
 
-    if (!this.termsCheckbox.checked) {
-      alert("Please accept the Terms of Service and Privacy Policy");
-      return;
-    }
-
     if (
       !isNameValid ||
       !isEmailValid ||
@@ -235,7 +229,6 @@ class SignUpForm {
         email: this.emailInput.value.trim(),
         password: this.passwordInput.value,
         confirmPassword: this.confirmPasswordInput.value,
-        terms: this.termsCheckbox.checked,
       };
 
       const response = await this.callSignUpAPI(formData);

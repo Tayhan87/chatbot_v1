@@ -1,7 +1,8 @@
 from django.shortcuts import render,redirect
-from django.contrib.auth import logout
+from django.contrib.auth import logout ,authenticate
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import is_password_usable
 from django.http import JsonResponse
 from app.models import Person,CalendarEvent
 from datetime import timedelta, datetime
@@ -57,6 +58,23 @@ def signout(request):
     if request.method == "POST":
         logout(request)
         return JsonResponse({"message":"Grant to Logout"}, status=200)
+    
+@csrf_exempt
+def checklogin(request):
+    print("This is milestone")
+    if request.method=="POST":
+        print("This is autobot")
+        data=json.loads(request.body)
+        email=data.get("email","").strip()
+        password=data.get("password","")
+        #person=Person.objects.get(email=email)
+        
+        user =  authenticate(request,username=email,password=password)
+
+        if user is not None:
+            return JsonResponse({"success":"Can Log in"},status=200)
+        else:
+            return JsonResponse({"error":"Can not find the account"},status=400)
 
 
 
@@ -72,18 +90,20 @@ def signup(request):
         if not username or not password or not email:
             return JsonResponse({"error": "All fields are required"}, status=400)
         
-        check_mail = Person.objects.filter(email=email).exists()
+        person = Person.objects.filter(email=email).first()
+        if person and is_password_usable(person.password):
+            check_mail=True
+        else:
+            check_mail=False
         if check_mail:
-            print("Email already exists")
-            return JsonResponse({"error": "Email already exists",
+
+            return JsonResponse({"error": "Account already exist",
                                  "code":"email_exists"
-                                 }, status=409)
-        
-        person = Person.objects.create(
-            username=username,
-            email=email,
-            password=password
-        )
+                                 }, status=400)
+        else:
+            person.set_password(password)
+            person.save()
+
         return JsonResponse({"success": "User created successfully"},status=201)
     return render(request,"app/signup.html")
 

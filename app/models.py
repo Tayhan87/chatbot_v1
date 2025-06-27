@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime ,timedelta
 from google.oauth2.credentials import Credentials
 from django.contrib.auth.models import AbstractUser, User, PermissionsMixin , BaseUserManager
 

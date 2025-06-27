@@ -1,58 +1,115 @@
 // Form validation and submission
-document.getElementById("loginForm").addEventListener("submit", function (e) {
-  e.preventDefault();
+document
+  .getElementById("loginForm")
+  .addEventListener("submit", async function (e) {
+    e.preventDefault();
 
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const loginBtn = document.getElementById("loginBtn");
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+    const loginBtn = document.getElementById("loginBtn");
 
-  // Reset error messages
-  document
-    .querySelectorAll('[id$="Error"]')
-    .forEach((el) => el.classList.add("hidden"));
+    // Reset error messages
+    document
+      .querySelectorAll('[id$="Error"]')
+      .forEach((el) => el.classList.add("hidden"));
 
-  let isValid = true;
+    let isValid = true;
 
-  // Email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    document.getElementById("emailError").classList.remove("hidden");
-    isValid = false;
-  }
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      document.getElementById("emailError").classList.remove("hidden");
+      isValid = false;
+    }
 
-  // Password validation
-  if (password.length < 6) {
-    document.getElementById("passwordError").classList.remove("hidden");
-    isValid = false;
-  }
+    // Password validation
+    if (password.length < 6) {
+      document.getElementById("passwordError").classList.remove("hidden");
+      isValid = false;
+    }
 
-  if (isValid) {
-    // Show loading state
-    loginBtn.innerHTML = `
+    if (isValid) {
+      // Show loading state
+      loginBtn.innerHTML = `
                     <div class="flex items-center justify-center space-x-2">
                         <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full loading-spinner"></div>
                         <span>Signing In...</span>
                     </div>
                 `;
-    loginBtn.disabled = true;
+      loginBtn.disabled = true;
 
-    // Simulate API call
-    setTimeout(() => {
-      document.getElementById("successMessage").classList.remove("hidden");
-      loginBtn.innerHTML = "Success!";
+      // Simulate API call
+      const flag = await getauth(email, password);
+      console.log(flag);
 
-      // Simulate redirect
-      setTimeout(() => {
-        alert(
-          "Login successful! In a real app, you would be redirected to the dashboard."
-        );
+      if (flag) {
+        setTimeout(() => {
+          document.getElementById("successMessage").classList.remove("hidden");
+          loginBtn.innerHTML = "Success!";
+          // try {
+          //   const baseURL = document.getElementById("googleLoginLink").href;
+
+          //   const seperator = baseURL.includes("?") ? "&" : "?";
+          //   const loginURL = `${baseURL}${seperator}login_hint=${encodeURIComponent(
+          //     email
+          //   )}`;
+
+          //   window.location.href = loginURL;
+          // } catch (e) {
+          //   console.log(e);
+          // }
+
+          // Simulate redirect
+          setTimeout(() => {
+            try {
+              alert(
+                "Login successful! In a real app, you would be redirected to the dashboard."
+              );
+              const baseURL = document.getElementById("googleLoginLink").href;
+
+              const seperator = baseURL.includes("?") ? "&" : "?";
+              const loginURL = `${baseURL}${seperator}login_hint=${encodeURIComponent(
+                email
+              )}&promt=none`;
+              console.log(loginURL);
+              window.location.href = loginURL;
+            } catch (e) {
+              console.log(e);
+            }
+            loginBtn.innerHTML = "Sign In";
+            loginBtn.disabled = false;
+            document.getElementById("successMessage").classList.add("hidden");
+          }, 1500);
+        }, 1000);
+      } else {
+        alert("Invalid Email or Password!!");
         loginBtn.innerHTML = "Sign In";
         loginBtn.disabled = false;
-        document.getElementById("successMessage").classList.add("hidden");
-      }, 1500);
-    }, 1000);
+      }
+    }
+  });
+
+async function getauth(email, password) {
+  console.log("Hello world");
+  const response = await fetch("/checklogin/", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      email: email,
+      password: password,
+    }),
+  });
+  const data = await response.json();
+  if (response.ok) {
+    console.log(data);
+    return true;
+  } else {
+    console.error(data);
+    return false;
   }
-});
+}
 
 function signInWithGoogle(event) {
   console.log("Google sign-in initiated");
