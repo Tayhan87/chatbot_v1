@@ -16,4 +16,6 @@ urlpatterns = [
     path('deleteevent/<str:event_id>/',views.deleteevent, name='deleteevent'),
     path('folderList/',views.folderList,name="folderList"),
     path('checklogin/',views.checklogin,name='checklogin'),
+    path('is_google_user/', views.is_google_user, name='is_google_user'),
+    path('google-picker-config/', views.google_picker_config, name='google_picker_config'),
 ]

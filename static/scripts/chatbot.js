@@ -1,56 +1,39 @@
 class ChatInterface {
   constructor() {
     this.messageInput = document.getElementById("messageInput");
-    this.sendButton = document.getElementById("sendButton");
     this.chatMessages = document.getElementById("chatMessages");
-    this.typingIndicator = document.getElementById("typingIndicator");
     this.chatForm = document.getElementById("chatForm");
     this.logoutButton = document.getElementById("logoutButton");
-    this.customButton = document.getElementById("customButton");
-    this.voiceButton = document.getElementById("voiceButton");
-    this.micIcon = document.getElementById("micIcon");
-    this.stopIcon = document.getElementById("stopIcon");
-
     this.isRecording = false;
     this.recognition = null;
-
     this.init();
   }
 
   init() {
-    // Send message on form submit
-    this.chatForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      this.sendMessage();
-    });
-
-    // Send message on Enter (but not Shift+Enter)
-    this.messageInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
+    if (this.chatForm) {
+      this.chatForm.addEventListener("submit", (e) => {
         e.preventDefault();
         this.sendMessage();
-      }
-    });
-
-    // Auto-resize textarea
-    this.messageInput.addEventListener("input", () => {
-      this.messageInput.style.height = "auto";
-      this.messageInput.style.height =
-        Math.min(this.messageInput.scrollHeight, 120) + "px";
-    });
-
-    // Logout button functionality
-    this.logoutButton.addEventListener("click", () => {
-      this.handleLogout();
-    });
-
-    // Voice button functionality
-    this.voiceButton.addEventListener("click", () => {
-      this.toggleVoiceInput();
-    });
-
-    // Initialize speech recognition
-    this.initSpeechRecognition();
+      });
+    }
+    if (this.messageInput) {
+      this.messageInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          this.sendMessage();
+        }
+      });
+      this.messageInput.addEventListener("input", () => {
+        this.messageInput.style.height = "auto";
+        this.messageInput.style.height =
+          Math.min(this.messageInput.scrollHeight, 120) + "px";
+      });
+    }
+    if (this.logoutButton) {
+      this.logoutButton.addEventListener("click", () => {
+        this.handleLogout();
+      });
+    }
   }
 
   async handleLogout() {
@@ -178,60 +161,45 @@ class ChatInterface {
   async sendMessage() {
     const message = this.messageInput.value.trim();
     if (!message) return;
-
-    // Add user message to chat
     this.addMessage(message, "user");
     this.messageInput.value = "";
     this.messageInput.style.height = "auto";
-
-    // Disable send button
-    this.sendButton.disabled = true;
-
-    // Show typing indicator
-    this.showTyping();
-
+    const sendButton = this.chatForm ? this.chatForm.querySelector('button[type="submit"]') : null;
+    if (sendButton) sendButton.disabled = true;
+    // Show typing bubble for AI
+    const typingBubble = this.addMessage('', 'bot-typing');
     try {
-      // Send message to Django backend
       const response = await this.callAPI(message);
-
-      // Hide typing indicator
-      this.hideTyping();
-
-      // Add bot response
+      console.log('AI API response:', response);
+      // Remove typing bubble
+      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
       this.addMessage(response, "bot");
     } catch (error) {
-      console.error("Error:", error);
-      this.hideTyping();
+      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
       this.addMessage(
         "Sorry, I encountered an error. Please try again.",
         "error"
       );
     } finally {
-      // Re-enable send button
-      this.sendButton.disabled = false;
+      if (sendButton) sendButton.disabled = false;
       this.messageInput.focus();
     }
   }
 
   async callAPI(message) {
-    // Replace with your Django backend URL
-    const API_URL = "/chat_api/"; // Adjust this to match your Django endpoint
-
+    const API_URL = "/chat_api/";
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": this.getCSRFToken(), // For Django CSRF protection
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
         message: message,
       }),
     });
-
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
     const data = await response.json();
     return data.response || data.message || "No response received";
   }
@@ -253,72 +221,97 @@ class ChatInterface {
   addMessage(text, type) {
     const messagesContainer = this.chatMessages.querySelector(".space-y-4");
     const messageWrapper = document.createElement("div");
-
-    const formattedText = text
-      // Bold (**text**)
+    let formattedText = text
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      // Italic (*text*)
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      // Code (`code`)
       .replace(/`(.*?)`/g, "<code>$1</code>")
-      // Headings (### Heading → <h3>Heading</h3>)
       .replace(/^### (.*$)/gm, "<h3>$1</h3>")
       .replace(/^## (.*$)/gm, "<h2>$1</h2>")
       .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-      // Links ([text](url)) → <a href="url">text</a>
       .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
-      .replace(/\n{3,}/g, (match) => "<br>".repeat(match.length)) // 3+ newlines → <br> per \n
-      .replace(/\n\n/g, "<br><br>") // Double newline → <br><br>
-      .replace(/\n/g, "<br><br>"); // Single newline → <br><br>
+      .replace(/\n{3,}/g, (match) => "<br>".repeat(match.length))
+      .replace(/\n\n/g, "<br><br>")
+      .replace(/\n/g, "<br><br>");
 
     if (type === "user") {
       messageWrapper.className = "flex justify-end";
       messageWrapper.innerHTML = `
-                        <div class="max-w-xs lg:max-w-md user-message-glass text-white p-4 rounded-2xl rounded-br-sm user-message-slide border border-[#4FC1E9] border-opacity-30">
-                            <div class="flex items-center justify-end space-x-2 mb-2">
-                                <span class="text-xs text-white font-semibold opacity-80">You</span>
-                                <div class="w-2 h-2 bg-white rounded-full opacity-80"></div>
-                            </div>
-                            ${formattedText}
-                        </div>
-                    `;
+        <div class="max-w-xs lg:max-w-md user-message-glass text-white p-4 rounded-2xl rounded-br-sm user-message-slide border border-[#4FC1E9] border-opacity-30">
+          <div class="flex items-center justify-end space-x-2 mb-2">
+            <span class="text-xs text-white font-semibold opacity-80">You</span>
+            <div class="w-2 h-2 bg-white rounded-full opacity-80"></div>
+          </div>
+          ${formattedText}
+        </div>
+      `;
+      messagesContainer.appendChild(messageWrapper);
+      this.scrollToBottom();
     } else if (type === "error") {
       messageWrapper.className = "flex justify-start";
       messageWrapper.innerHTML = `
-                        <div class="max-w-xs lg:max-w-md bg-red-900 bg-opacity-50 border border-red-500 text-red-300 p-4 rounded-2xl rounded-bl-sm message-entrance">
-                            <div class="flex items-center space-x-2 mb-2">
-                                <div class="w-2 h-2 bg-red-400 rounded-full"></div>
-                                <span class="text-xs text-red-400 font-semibold">Error</span>
-                            </div>
-                            ${text}
-                        </div>
-                    `;
+        <div class="max-w-xs lg:max-w-md bg-red-900 bg-opacity-50 border border-red-500 text-red-300 p-4 rounded-2xl rounded-bl-sm message-entrance">
+          <div class="flex items-center space-x-2 mb-2">
+            <div class="w-2 h-2 bg-red-400 rounded-full"></div>
+            <span class="text-xs text-red-400 font-semibold">Error</span>
+          </div>
+          ${text}
+        </div>
+      `;
+      messagesContainer.appendChild(messageWrapper);
+      this.scrollToBottom();
+    } else if (type === "bot-typing") {
+      // Show a typing bubble for the bot
+      messageWrapper.className = "flex justify-start ai-typing-bubble";
+      messageWrapper.innerHTML = `
+        <div class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance flex items-center">
+          <div class="flex items-center space-x-2 mb-2">
+            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"></div>
+            <span class="text-xs text-[#4FC1E9] font-semibold">AI Assistant</span>
+          </div>
+          <span class="typing-dots">
+            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce"></span>
+            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce delay-100"></span>
+            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></span>
+          </span>
+        </div>
+      `;
+      messagesContainer.appendChild(messageWrapper);
+      this.scrollToBottom();
+      return messageWrapper;
     } else {
+      // Animate AI reply letter by letter
       messageWrapper.className = "flex justify-start";
       messageWrapper.innerHTML = `
-                        <div class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance">
-                            <div class="flex items-center space-x-2 mb-2">
-                                <div class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"></div>
-                                <span class="text-xs text-[#4FC1E9] font-semibold">AI Assistant</span>
-                            </div>
-                            ${formattedText}
-                        </div>
-                    `;
+        <div class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance">
+          <div class="flex items-center space-x-2 mb-2">
+            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"></div>
+            <span class="text-xs text-[#4FC1E9] font-semibold">AI Assistant</span>
+          </div>
+          <span class="ai-animated-reply"></span>
+        </div>
+      `;
+      messagesContainer.appendChild(messageWrapper);
+      this.scrollToBottom();
+      // Animate the reply
+      const replySpan = messageWrapper.querySelector('.ai-animated-reply');
+      let i = 0;
+      function typeLetter() {
+        if (i <= formattedText.length) {
+          replySpan.innerHTML = formattedText.slice(0, i);
+          i++;
+          setTimeout(typeLetter, 18); // speed of typing
+        }
+      }
+      typeLetter();
     }
-
-    messagesContainer.appendChild(messageWrapper);
-    this.scrollToBottom();
   }
 
   showTyping() {
-    this.typingIndicator.style.display = "block";
-    this.scrollToBottom();
+    // No-op for now
   }
-
   hideTyping() {
-    this.typingIndicator.style.display = "none";
+    // No-op for now
   }
-
   scrollToBottom() {
     setTimeout(() => {
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
@@ -326,7 +319,58 @@ class ChatInterface {
   }
 }
 
-// Initialize chat interface when page loads
-document.addEventListener("DOMContentLoaded", () => {
-  new ChatInterface();
+// Attach ChatInterface to window as a constructor
+window.ChatInterface = ChatInterface;
+
+// Google Drive Picker Integration
+function loadGooglePicker(apiKey, accessToken) {
+    if (!window.google || !window.google.picker) {
+        var script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = function() {
+            gapi.load('picker', {'callback': function() {
+                openPicker(apiKey, accessToken);
+            }});
+        };
+        document.body.appendChild(script);
+    } else {
+        openPicker(apiKey, accessToken);
+    }
+}
+
+function openPicker(apiKey, accessToken) {
+    var picker = new google.picker.PickerBuilder()
+        .addView(google.picker.ViewId.DOCS)
+        .setOAuthToken(accessToken)
+        .setDeveloperKey(apiKey)
+        .setCallback(pickerCallback)
+        .build();
+    picker.setVisible(true);
+}
+
+function pickerCallback(data) {
+    if (data.action === google.picker.Action.PICKED) {
+        var file = data.docs[0];
+        alert('You picked: ' + file.name + '\nURL: ' + file.url);
+        // You can send file info to your backend here if needed
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var driveBtn = document.getElementById('google-drive-btn');
+    if (driveBtn) {
+        driveBtn.addEventListener('click', function() {
+            fetch('/google-picker-config/')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.apiKey && data.accessToken) {
+                        loadGooglePicker(data.apiKey, data.accessToken);
+                    } else if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert('Google Drive integration is not available. Please log in with Google.');
+                    }
+                });
+        });
+    }
 });

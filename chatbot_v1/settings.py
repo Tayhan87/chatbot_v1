@@ -175,6 +175,8 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install -q -U google-genai
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
+GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
+
 
 
 
