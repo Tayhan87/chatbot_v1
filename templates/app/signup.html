@@ -31,7 +31,8 @@
         </div>
 
         <!-- Sign Up Form -->
-        <form id="signupForm" class="space-y-6">
+        <form id="signupForm" class="space-y-6" method="post">
+          {% csrf_token %}
           <!-- Name Field -->
           <div>
             <label
@@ -268,6 +269,7 @@
               Creating Account...
             </div>
           </button>
+          <div id="generalError" class="error-message text-red-400 text-sm mt-2 hidden"></div>
         </form>
 
         <!-- Sign In Link -->
@@ -299,5 +301,16 @@
     </div>
 
     <script src="{% static 'scripts/signup.js' %}"></script>
+    <script>
+      // Backup: forcibly prevent default form submission
+      document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('signupForm');
+        if (form) {
+          form.addEventListener('submit', function(e) {
+            e.preventDefault();
+          });
+        }
+      });
+    </script>
   </body>
 </html>

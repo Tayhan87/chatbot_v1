@@ -301,3 +301,115 @@ class SignUpForm {
 document.addEventListener("DOMContentLoaded", () => {
   new SignUpForm();
 });
+
+// Overwrite or add robust signup logic at the end
+
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("signupForm");
+  if (!form) return;
+
+  const nameInput = document.getElementById("name");
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const confirmPasswordInput = document.getElementById("confirmPassword");
+  const signupButton = document.getElementById("signupButton");
+  const buttonText = document.getElementById("buttonText");
+  const buttonSpinner = document.getElementById("buttonSpinner");
+  const nameError = document.getElementById("nameError");
+  const emailError = document.getElementById("emailError");
+  const passwordError = document.getElementById("passwordError");
+  const confirmPasswordError = document.getElementById("confirmPasswordError");
+  const generalError = document.getElementById("generalError");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    // Reset errors
+    [nameError, emailError, passwordError, confirmPasswordError, generalError].forEach(el => {
+      if (el) {
+        el.textContent = "";
+        el.classList.add("hidden");
+      }
+    });
+    buttonText.classList.add("hidden");
+    buttonSpinner.classList.remove("hidden");
+
+    // Validate
+    let valid = true;
+    if (!nameInput.value.trim()) {
+      nameError.textContent = "Name is required";
+      nameError.classList.remove("hidden");
+      valid = false;
+    }
+    if (!emailInput.value.trim() || !/^\S+@\S+\.\S+$/.test(emailInput.value)) {
+      emailError.textContent = "Valid email is required";
+      emailError.classList.remove("hidden");
+      valid = false;
+    }
+    if (!passwordInput.value || passwordInput.value.length < 6) {
+      passwordError.textContent = "Password must be at least 6 characters";
+      passwordError.classList.remove("hidden");
+      valid = false;
+    }
+    if (confirmPasswordInput && passwordInput.value !== confirmPasswordInput.value) {
+      confirmPasswordError.textContent = "Passwords do not match";
+      confirmPasswordError.classList.remove("hidden");
+      valid = false;
+    }
+    if (!valid) {
+      buttonText.classList.remove("hidden");
+      buttonSpinner.classList.add("hidden");
+      return;
+    }
+
+    // Send AJAX
+    try {
+      const response = await fetch("/signup/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: nameInput.value.trim(),
+          email: emailInput.value.trim(),
+          password: passwordInput.value
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        window.location.href = data.redirect_url;
+      } else {
+        if (data.error) {
+          if (data.code === "email_exists") {
+            emailError.textContent = data.error;
+            emailError.classList.remove("hidden");
+            // Redirect to login page after 2 seconds
+            setTimeout(() => {
+              window.location.href = "/login/";
+            }, 2000);
+          } else if (data.error.toLowerCase().includes("name")) {
+            nameError.textContent = data.error;
+            nameError.classList.remove("hidden");
+          } else if (data.error.toLowerCase().includes("email")) {
+            emailError.textContent = data.error;
+            emailError.classList.remove("hidden");
+          } else if (data.error.toLowerCase().includes("password")) {
+            passwordError.textContent = data.error;
+            passwordError.classList.remove("hidden");
+          } else {
+            generalError.textContent = data.error;
+            generalError.classList.remove("hidden");
+          }
+        } else {
+          generalError.textContent = "Signup failed. Please try again.";
+          generalError.classList.remove("hidden");
+        }
+      }
+    } catch (err) {
+      generalError.textContent = "Network or server error.";
+      generalError.classList.remove("hidden");
+    } finally {
+      buttonText.classList.remove("hidden");
+      buttonSpinner.classList.add("hidden");
+    }
+  });
+});

@@ -15,6 +15,7 @@
 
 """[Experimental] Auth Tokens API client."""
 
+import json
 import logging
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
@@ -143,6 +144,7 @@ class Tokens(_api_module.BaseModule):
     Usage:
 
     .. code-block:: python
+
       # Case 1: If LiveEphemeralParameters is unset, unlock LiveConnectConfig
       # when using the token in Live API sessions. Each session connection can
       # use a different configuration.
@@ -154,6 +156,7 @@ class Tokens(_api_module.BaseModule):
       auth_token = client.tokens.create(config=config)
 
     .. code-block:: python
+
       # Case 2: If LiveEphemeralParameters is set, lock all fields in
       # LiveConnectConfig when using the token in Live API sessions. For
       # example, changing `output_audio_transcription` in the Live API
@@ -170,7 +173,9 @@ class Tokens(_api_module.BaseModule):
               ),
           )
       )
-      .. code-block:: python
+
+    .. code-block:: python
+
       # Case 3: If LiveEphemeralParameters is set and lockAdditionalFields is
       # empty, lock LiveConnectConfig with set fields (e.g.
       # system_instruction in this example) when using the token in Live API
@@ -187,7 +192,8 @@ class Tokens(_api_module.BaseModule):
           )
       )
 
-      .. code-block:: python
+    .. code-block:: python
+
       # Case 4: If LiveEphemeralParameters is set and lockAdditionalFields is
       # set, lock LiveConnectConfig with set and additional fields (e.g.
       # system_instruction, temperature in this example) when using the token
@@ -216,7 +222,8 @@ class Tokens(_api_module.BaseModule):
       )
     else:
       request_dict = tokens_converters._CreateAuthTokenParameters_to_mldev(
-          self._api_client, parameter_model
+          self._api_client,
+          parameter_model
       )
       request_url_dict = request_dict.get('_url')
       if request_url_dict:
@@ -247,13 +254,14 @@ class Tokens(_api_module.BaseModule):
     request_dict = _common.convert_to_dict(request_dict)
     request_dict = _common.encode_unserializable_types(request_dict)
 
-    response_dict = self._api_client.request(
+    response = self._api_client.request(
         'post', path, request_dict, http_options
     )
+    response_dict = '' if not response.body else json.loads(response.body)
 
     if not self._api_client.vertexai:
       response_dict = tokens_converters._AuthToken_from_mldev(
-          self._api_client, response_dict
+          response_dict
       )
 
     return_value = types.AuthToken._from_response(
@@ -309,7 +317,8 @@ class AsyncTokens(_api_module.BaseModule):
       )
     else:
       request_dict = tokens_converters._CreateAuthTokenParameters_to_mldev(
-          self._api_client, parameter_model
+          self._api_client,
+          parameter_model
       )
       request_url_dict = request_dict.get('_url')
       if request_url_dict:
@@ -338,16 +347,17 @@ class AsyncTokens(_api_module.BaseModule):
     request_dict = _common.convert_to_dict(request_dict)
     request_dict = _common.encode_unserializable_types(request_dict)
 
-    response_dict = await self._api_client.async_request(
+    response = await self._api_client.async_request(
         'post',
         path,
         request_dict,
         http_options=http_options,
     )
+    response_dict = '' if not response.body else json.loads(response.body)
 
     if not self._api_client.vertexai:
       response_dict = tokens_converters._AuthToken_from_mldev(
-          self._api_client, response_dict
+          response_dict
       )
 
     return_value = types.AuthToken._from_response(

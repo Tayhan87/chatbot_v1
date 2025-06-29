@@ -165,3 +165,81 @@ const floatKeyframes = `
 const style = document.createElement("style");
 style.textContent = floatKeyframes;
 document.head.appendChild(style);
+
+document.addEventListener("DOMContentLoaded", function () {
+  const form = document.getElementById("loginForm");
+  if (!form) return;
+
+  const emailInput = document.getElementById("email");
+  const passwordInput = document.getElementById("password");
+  const loginBtn = document.getElementById("loginBtn");
+  const emailError = document.getElementById("emailError");
+  const passwordError = document.getElementById("passwordError");
+  const generalLoginError = document.getElementById("generalLoginError");
+  const successMessage = document.getElementById("successMessage");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    // Reset errors
+    [emailError, passwordError, generalLoginError].forEach(el => {
+      if (el) {
+        el.textContent = "";
+        el.classList.add("hidden");
+      }
+    });
+    if (successMessage) successMessage.classList.add("hidden");
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Signing In...";
+
+    // Validate
+    let valid = true;
+    if (!emailInput.value.trim() || !/^\S+@\S+\.\S+$/.test(emailInput.value)) {
+      emailError.textContent = "Valid email is required";
+      emailError.classList.remove("hidden");
+      valid = false;
+    }
+    if (!passwordInput.value || passwordInput.value.length < 6) {
+      passwordError.textContent = "Password must be at least 6 characters";
+      passwordError.classList.remove("hidden");
+      valid = false;
+    }
+    if (!valid) {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign In";
+      return;
+    }
+
+    // Send AJAX
+    try {
+      const response = await fetch("/checklogin/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: emailInput.value.trim(),
+          password: passwordInput.value
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (successMessage) successMessage.classList.remove("hidden");
+        window.location.href = data.redirect_url || "/chatbot/";
+      } else {
+        if (data.error) {
+          generalLoginError.textContent = data.error;
+          generalLoginError.classList.remove("hidden");
+        } else {
+          generalLoginError.textContent = "Login failed. Please try again.";
+          generalLoginError.classList.remove("hidden");
+        }
+      }
+    } catch (err) {
+      generalLoginError.textContent = "Network or server error.";
+      generalLoginError.classList.remove("hidden");
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign In";
+    }
+  });
+});

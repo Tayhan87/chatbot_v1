@@ -37,7 +37,8 @@
         </div>
 
         <!-- Login Form -->
-        <form id="loginForm" class="space-y-6">
+        <form id="loginForm" class="space-y-6" method="post">
+          {% csrf_token %}
           <!-- Email Field -->
           <div>
             <label
@@ -99,6 +100,7 @@
           >
             Sign In
           </button>
+          <div id="generalLoginError" class="hidden mt-2 text-sm text-red-400"></div>
         </form>
 
         <!-- Divider -->

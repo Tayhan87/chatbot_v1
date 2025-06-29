@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from django.contrib.auth import logout ,authenticate
+from django.contrib.auth import logout ,authenticate, login
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import is_password_usable
@@ -72,7 +72,8 @@ def checklogin(request):
         user =  authenticate(request,username=email,password=password)
 
         if user is not None:
-            return JsonResponse({"success":"Can Log in"},status=200)
+            login(request, user)
+            return JsonResponse({"success":"Can Log in", "redirect_url": "/chatbot/"},status=200)
         else:
             return JsonResponse({"error":"Can not find the account"},status=400)
 
@@ -82,30 +83,32 @@ def checklogin(request):
 def signup(request):
     if request.method == "POST":
         print("Processing signup form")
-        data= json.loads(request.body)
-        username=data.get("name","").strip()
-        password=data.get("password","")
-        email=data.get("email","").strip().lower()
+        try:
+            if request.content_type == "application/json":
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+        except Exception as e:
+            return JsonResponse({"error": "Invalid data format"}, status=400)
+
+        username = data.get("name", "").strip()
+        password = data.get("password", "")
+        email = data.get("email", "").strip().lower()
 
         if not username or not password or not email:
             return JsonResponse({"error": "All fields are required"}, status=400)
         
         person = Person.objects.filter(email=email).first()
         if person and is_password_usable(person.password):
-            check_mail=True
+            return JsonResponse({"error": "Account already exist", "code": "email_exists"}, status=400)
         else:
-            check_mail=False
-        if check_mail:
-
-            return JsonResponse({"error": "Account already exist",
-                                 "code":"email_exists"
-                                 }, status=400)
-        else:
+            # Create a new Person object
+            person = Person(username=username, email=email)
             person.set_password(password)
             person.save()
 
-        return JsonResponse({"success": "User created successfully"},status=201)
-    return render(request,"app/signup.html")
+        return JsonResponse({"success": "User created successfully", "redirect_url": "/login/"}, status=201)
+    return render(request, "app/signup.html")
 
 def eventadd(request):
     folders= list_of_folders(request.user.email)
