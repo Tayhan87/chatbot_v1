@@ -71,6 +71,7 @@ class MeetingManager {
       });
 
       if (response.ok) {
+        await this.folderList();
         await this.loadMeetings();
         this.currentEditingId = null;
         return true;
@@ -305,6 +306,7 @@ class MeetingManager {
 
     const success = await this.saveMeeting(meetingData);
     if (success) {
+      await this.folderList();
       this.closeModal();
       // Optionally show a success message
       // alert('Meeting saved successfully!');
@@ -396,8 +398,12 @@ class MeetingManager {
           </div>
           ${meeting.description ? `<div class="text-gray-400 text-sm mb-1">${meeting.description}</div>` : ''}
           ${meeting.link ? `<a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-1 transition-colors"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>Join Meeting</a>` : ''}
+          ${meeting.folder ? (() => {
+            const folderObj = this.folders.find(f => f.id == meeting.folder);
+            const folderName = folderObj ? folderObj.name : 'Open Drive Folder';
+            return `<a href="https://drive.google.com/drive/folders/${meeting.folder}" target="_blank" style="position:relative;z-index:10;pointer-events:auto;" class="inline-flex items-center text-green-400 hover:text-green-300 text-sm mt-1 transition-colors" title="Open Drive Folder"><svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H14V6H19C20.1 6 21 6.9 21 8V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V8C3 6.9 3.9 6 5 6H10V4M5 8V19H19V8H5M12 10C13.1 10 14 10.9 14 12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12C10 10.9 10.9 10 12 10Z"/></svg>${folderName}</a>`;
+          })() : ''}
           ${meeting.reminder && meeting.reminder !== 'none' ? `<div class="text-xs text-gray-400 mt-1">Reminder: ${this.getReminderText(meeting.reminder)}</div>` : ''}
-          ${meeting.folder ? `<div class="text-blue-300 text-xs mt-1">📁 ${meeting.folder}</div>` : ''}
         </div>
         <div class="flex space-x-2 mt-4 md:mt-0 md:ml-4">
           <button onclick="meetingManager.openEditModal('${meeting.id}')"

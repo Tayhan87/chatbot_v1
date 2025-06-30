@@ -5,6 +5,8 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from django.conf import settings # To get your client_id and secret
 from googleapiclient.errors import HttpError
+import io
+from googleapiclient.http import MediaIoBaseUpload
 
 from app.models import Person
 
@@ -191,3 +193,52 @@ def manage_folder(email):
         print("User with this email doesn't exist")
     except Exception as e:
         print(f"An unexpected error occurred in manage_folder: {e}")
+
+def upload_files_to_drive(files, user):
+    """
+    Uploads a list of files (Django InMemoryUploadedFile) to Google Drive, preserving folder structure.
+    Each file's .name should be its webkitRelativePath (e.g., 'folder/subfolder/file.txt').
+    """
+    service = get_drive_service(user)
+    if not service:
+        raise Exception("Google Drive service could not be initialized for this user.")
+    folder_map = {}  # Maps folder path to Google Drive folder ID
+    for file in files:
+        rel_path = file.name  # e.g., 'myfolder/subfolder/file.txt'
+        parts = rel_path.split('/')[:-1]
+        parent_id = 'root'
+        path_so_far = ""
+        # Create folders as needed
+        for part in parts:
+            path_so_far = f"{path_so_far}/{part}" if path_so_far else part
+            if path_so_far not in folder_map:
+                # Check if folder exists, else create
+                folder_id = _create_or_get_folder(service, part, parent_id)
+                folder_map[path_so_far] = folder_id
+            parent_id = folder_map[path_so_far]
+        # Upload file
+        media = MediaIoBaseUpload(file, mimetype=file.content_type)
+        service.files().create(
+            body={
+                'name': rel_path.split('/')[-1],
+                'parents': [parent_id]
+            },
+            media_body=media,
+            fields='id'
+        ).execute()
+
+def _create_or_get_folder(service, name, parent_id):
+    # Check if folder exists
+    query = f"'{parent_id}' in parents and name='{name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    items = results.get('files', [])
+    if items:
+        return items[0]['id']
+    # Create folder
+    file_metadata = {
+        'name': name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [parent_id]
+    }
+    folder = service.files().create(body=file_metadata, fields='id').execute()
+    return folder.get('id')

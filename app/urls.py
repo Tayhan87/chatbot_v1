@@ -20,4 +20,5 @@ urlpatterns = [
     path('google-picker-config/', views.google_picker_config, name='google_picker_config'),
     path('update_today_meeting_folder/', views.update_today_meeting_folder, name='update_today_meeting_folder'),
     path('update_meeting_folder/', views.update_meeting_folder, name='update_meeting_folder'),
+    path('upload_folder/', views.upload_folder, name='upload_folder'),
 ]

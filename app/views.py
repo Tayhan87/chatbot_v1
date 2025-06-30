@@ -65,12 +65,12 @@ def chatbot(request):
     return render(request, 'app/chatbot.html')
 
 
-@csrf_exempt
 def signout(request):
     if request.method == "POST":
         logout(request)
-        return JsonResponse({"message":"Grant to Logout"}, status=200)
-    
+        return JsonResponse({"success": True, "message": "Logged out"}, status=200)
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
 @csrf_exempt
 def checklogin(request):
     print("This is milestone")
@@ -392,6 +392,26 @@ def update_meeting_folder(request):
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+@csrf_exempt
+@login_required
+def upload_folder(request):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "POST only"})
+    files = request.FILES.getlist("files")
+    if not files:
+        return JsonResponse({"success": False, "error": "No files received"})
+
+    # Get user's Google credentials (implement this for your app)
+    creds = get_user_google_credentials(request.user)
+    if not creds:
+        return JsonResponse({"success": False, "error": "Google account not linked"})
+
+    try:
+        upload_files_to_drive(files, creds)
+        return JsonResponse({"success": True})
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)})
 
 
 

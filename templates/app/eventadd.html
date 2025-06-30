@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="{% static 'css/eventadd.css' %}" />
   </head>
   <body class="min-h-screen bg-image">
+    <!-- Refresh Button Top Right -->
+    <button id="refreshEventaddBtn" title="Refresh" onclick="location.reload()" class="fixed top-6 right-6 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg>
+      <span>Refresh</span>
+    </button>
     <!-- Back Button -->
     <button onclick="window.history.back()" class="absolute top-6 left-6 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold flex items-center gap-2">
       <span class="text-xl">⬅️</span> <span>Back</span>
@@ -20,7 +25,9 @@
       <div class="glass-effect rounded-3xl shadow-2xl p-8 mb-6">
         <div class="flex justify-between items-center">
           <div>
-            <h1 class="text-3xl font-bold text-white mb-2">Meeting Manager</h1>
+            <h1 class="text-3xl font-bold text-white mb-2 flex items-center">Meeting Manager
+              <button id="refreshEventaddBtn" title="Refresh" onclick="location.reload()" class="ml-2 p-2 rounded-full bg-gray-700 hover:bg-blue-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg></button>
+            </h1>
             <p class="text-gray-300">Manage your meetings with Google Calendar integration</p>
           </div>
           <button id="addMeetingBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center">

@@ -9,6 +9,11 @@
     <link rel="stylesheet" href="{% static 'css/chatbot.css' %}" />
   </head>
   <body class="min-h-screen bg-image flex items-center justify-center p-4">
+    <!-- Refresh Button Top Right -->
+    <button id="refreshChatbotBtn" title="Refresh" onclick="location.reload()" class="fixed top-6 right-6 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg>
+      <span>Refresh</span>
+    </button>
     <div class="absolute inset-0 bg-gray-900 bg-opacity-50"></div>
     <div class="relative z-10 w-full max-w-6xl h-[90vh] flex rounded-3xl shadow-2xl border border-gray-700 glass-effect">
       <!-- Sidebar -->
@@ -19,15 +24,6 @@
             <span class="text-2xl">💬</span>
             <span>AI Chat Assistant</span>
           </button>
-          <!-- File Upload -->
-          <div class="mb-6">
-            <h2 class="text-lg font-bold text-white mb-2">Upload Files</h2>
-            <form id="fileUploadForm" class="flex flex-col space-y-2">
-              <input type="file" id="fileInput" name="file" class="bg-gray-800 text-white rounded-lg px-4 py-2" webkitdirectory directory multiple />
-              <button type="submit" class="bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-semibold px-6 py-2 rounded-lg">Upload</button>
-            </form>
-            <div id="uploadStatus" class="mt-2 text-sm text-green-400 hidden"></div>
-          </div>
           <!-- Google Drive Picker Button -->
           <button id="google-drive-btn" class="w-full flex items-center space-x-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none">
             <span class="text-xl">📁</span>
@@ -41,18 +37,16 @@
           </a>
           <!-- Drive Links for Today's Meetings -->
           <div class="mb-6">
-            <h2 class="text-lg font-bold text-white mb-2 flex items-center">📅 <span class="ml-2">Today's Meetings</span></h2>
+            <h2 class="text-lg font-bold text-white mb-2 flex items-center"> 
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3M16 7V3M4 11H20M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 16l2 2 4-4"/></svg>
+              <span class="ml-2">Today's Meetings</span>
+            </h2>
             <div id="sidebarTodaysMeetings" class="bg-gray-800 rounded-lg p-2 max-h-40 overflow-y-auto text-sm text-blue-300 space-y-2">
-              <div class="text-gray-400">No meetings scheduled for today.</div>
+              <div class="text-gray-400">Give new folder link: Share or update a Drive link for a meeting</div>
               <!-- Meeting items will be rendered here by JS if available -->
             </div>
           </div>
         </div>
-        <!-- Logout Button -->
-        <button id="logoutButton" class="w-full flex items-center space-x-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg focus:outline-none">
-          <span class="text-xl">🚪</span>
-          <span>Logout</span>
-        </button>
       </aside>
       <!-- Main Content -->
       <main class="flex-1 flex flex-col p-8 overflow-y-auto">
@@ -76,7 +70,9 @@
         <!-- Chat Area (hidden by default, shown when AI Chat Assistant is clicked) -->
         <section id="chatSection" class="hidden mt-8">
           <div class="bg-gray-900 bg-opacity-80 rounded-xl p-6 shadow-md w-full max-w-2xl mx-auto flex flex-col" style="height: 600px; min-height: 400px; max-height: 80vh;">
-            <h3 class="text-xl font-semibold text-white mb-4">AI Chat</h3>
+            <h3 class="text-xl font-semibold text-white mb-4 flex items-center justify-between">AI Chat
+              <button id="refreshChatbotBtn" title="Refresh" onclick="location.reload()" class="ml-2 p-2 rounded-full bg-gray-700 hover:bg-blue-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg></button>
+            </h3>
             <div class="flex-1 flex flex-col overflow-y-auto mb-4" id="chatMessages" style="min-height:0;">
               <div class="space-y-4">
                 <div class="text-gray-400">Welcome to the AI Chat Assistant!</div>
@@ -89,8 +85,14 @@
           </div>
         </section>
       </main>
+      <!-- Logout Button fixed to bottom left -->
+      <button id="logoutBtn" class="fixed bottom-8 left-8 flex items-center space-x-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg focus:outline-none z-50">
+        <span class="text-xl">🚪</span>
+        <span>Logout</span>
+      </button>
     </div>
     <script src="{% static 'scripts/chatbot.js' %}"></script>
+    <script src="{% static 'scripts/index.js' %}"></script>
     <script>
       // Toggle chat section and initialize chat interface only once
       let chatInitialized = false;
@@ -102,16 +104,7 @@
           chatInitialized = true;
         }
       });
-      // File upload placeholder
-      document.getElementById('fileUploadForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        document.getElementById('uploadStatus').textContent = 'File uploaded (placeholder)!';
-        document.getElementById('uploadStatus').classList.remove('hidden');
-      });
-      // Logout placeholder
-      document.getElementById('logoutButton').addEventListener('click', function() {
-        fetch('/signout/', {method: 'POST'}).then(() => window.location.href = '/login/');
-      });
+      window.GOOGLE_ACCESS_TOKEN = "{{ google_access_token|default:'' }}";
     </script>
   </body>
 </html>

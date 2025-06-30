@@ -3,7 +3,6 @@ class ChatInterface {
     this.messageInput = document.getElementById("messageInput");
     this.chatMessages = document.getElementById("chatMessages");
     this.chatForm = document.getElementById("chatForm");
-    this.logoutButton = document.getElementById("logoutButton");
     this.isRecording = false;
     this.recognition = null;
     this.init();
@@ -28,58 +27,6 @@ class ChatInterface {
         this.messageInput.style.height =
           Math.min(this.messageInput.scrollHeight, 120) + "px";
       });
-    }
-    if (this.logoutButton) {
-      this.logoutButton.addEventListener("click", () => {
-        this.handleLogout();
-      });
-    }
-  }
-
-  async handleLogout() {
-    // Show confirmation dialog
-    const confirmed = confirm("Are you sure you want to logout?");
-    if (!confirmed) return;
-
-    // window.location.href = document.getElementById("logouts").href; // Redirect to logout URL
-
-    try {
-      // Show loading state on logout button
-      this.logoutButton.disabled = true;
-      this.logoutButton.innerHTML = `
-                        <div class="flex items-center space-x-2">
-                            <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full loading-spinner"></div>
-                            <span>Logging out...</span>
-                        </div>
-                    `;
-
-      // Make logout request to Django backend
-      const response = await fetch("/signout/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": this.getCSRFToken(),
-        },
-      });
-
-      if (response.ok) {
-        // Redirect to login page or home page
-        window.location.href = "/login/"; // Adjust this URL as needed
-      } else {
-        throw new Error("Logout failed");
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-      alert("Logout failed. Please try again.");
-
-      // Restore logout button
-      this.logoutButton.disabled = false;
-      this.logoutButton.innerHTML = `
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M16 17v-3H9v-4h7V7l5 5-5 5M14 2a2 2 0 012 2v2h-2V4H4v16h10v-2h2v2a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2h10z"/>
-                        </svg>
-                        <span>Logout</span>
-                    `;
     }
   }
 
@@ -406,13 +353,19 @@ document.addEventListener('DOMContentLoaded', function() {
           if (todaysMeetings.length === 0) {
             sidebarMeetingsDiv.innerHTML = '<div class="text-gray-400">No meetings scheduled for today.</div>';
           } else {
-            sidebarMeetingsDiv.innerHTML = todaysMeetings.map(m => `
-              <div class="flex flex-col bg-gray-900 bg-opacity-60 rounded-lg p-2 mb-2">
-                <div class="font-semibold text-white flex items-center"><span class="mr-2">📝</span>${m.title}</div>
-                <div class="text-xs text-gray-300 flex items-center"><span class="mr-1">⏰</span>${formatTime(m.time)}</div>
-                ${m.folder ? `<div class="text-xs mt-1"><span class="mr-1">📁</span><a href="${m.folder}" target="_blank" class="underline hover:text-blue-400">Drive Link</a></div>` : ''}
-              </div>
-            `).join('');
+            sidebarMeetingsDiv.innerHTML = todaysMeetings.map(m => {
+              // Only treat as valid if the folder link is a Google Drive folder link
+              const isValidDriveLink = m.folder && m.folder.startsWith('https://drive.google.com/drive/folders/');
+              return `
+                <div class="flex flex-col bg-gray-900 bg-opacity-60 rounded-lg p-2 mb-2">
+                  <div class="font-semibold text-white flex items-center"><span class="mr-2">📝</span>${m.title}</div>
+                  <div class="text-xs text-gray-300 flex items-center"><span class="mr-1">⏰</span>${formatTime(m.time)}</div>
+                  ${isValidDriveLink
+                    ? `<div class=\"text-xs mt-1\"><span class=\"mr-1\">📁</span><a href=\"${m.folder}\" target=\"_blank\" class=\"underline hover:text-blue-400\">Drive Link</a></div>`
+                    : `<div class=\"text-xs mt-1\"><span class=\"mr-1\">📁</span><button onclick=\"alert('You must submit a Drive link in Share or update a Drive link for a meeting first.')\" class=\"underline text-yellow-400 hover:text-yellow-500 focus:outline-none\">Drive Link</button></div>`}
+                </div>
+              `;
+            }).join('');
           }
         }
       });
@@ -498,4 +451,117 @@ document.addEventListener('DOMContentLoaded', function() {
         default: return 'No reminder';
       }
     }
+
+    // Add logout button handler for bottom-left button
+    const logoutBtn = document.getElementById("logoutBtn");
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", async () => {
+        try {
+          await fetch("/signout/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRFToken": (new ChatInterface()).getCSRFToken()
+            }
+          });
+        } catch (e) {
+          // Ignore errors, still redirect
+        }
+        window.location.href = "/login/";
+      });
+    }
+});
+
+// --- Google Drive Upload Integration ---
+async function uploadFileToDrive(file, parentId = null) {
+  const accessToken = window.GOOGLE_ACCESS_TOKEN;
+  const metadata = {
+    name: file.webkitRelativePath ? file.webkitRelativePath.split('/').pop() : file.name,
+    mimeType: file.type || 'application/octet-stream',
+    ...(parentId ? { parents: [parentId] } : {})
+  };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', file);
+  const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST',
+    headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+    body: form
+  });
+  if (!response.ok) throw new Error('Upload failed: ' + response.statusText);
+  return await response.json();
+}
+async function createDriveFolder(name, parentId = null) {
+  const accessToken = window.GOOGLE_ACCESS_TOKEN;
+  const metadata = {
+    name: name,
+    mimeType: 'application/vnd.google-apps.folder',
+    ...(parentId ? { parents: [parentId] } : {})
+  };
+  const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(metadata)
+  });
+  if (!response.ok) throw new Error('Folder creation failed: ' + response.statusText);
+  return await response.json();
+}
+document.getElementById('fileUploadForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const input = document.getElementById('fileInput');
+  const files = Array.from(input.files);
+  const uploadStatus = document.getElementById('uploadStatus');
+  const uploadBtn = this.querySelector('button[type="submit"]');
+  if (!files.length) {
+    uploadStatus.textContent = 'Please select files or a folder.';
+    uploadStatus.classList.remove('hidden');
+    uploadStatus.classList.add('text-red-400');
+    return;
+  }
+  uploadBtn.disabled = true;
+  uploadStatus.textContent = 'Uploading...';
+  uploadStatus.classList.remove('hidden', 'text-red-400', 'text-green-400');
+  uploadStatus.classList.add('text-yellow-300');
+  // Optional: Create a parent folder in Drive for this upload
+  // const parentFolder = await createDriveFolder('MyApp Uploads');
+  // Build folder structure
+  const folderMap = {}; // { 'relative/path/': driveFolderId }
+  let uploaded = 0;
+  try {
+    for (const file of files) {
+      let parentId = null;
+      if (file.webkitRelativePath) {
+        const pathParts = file.webkitRelativePath.split('/');
+        if (pathParts.length > 1) {
+          // Create folders as needed
+          let currentPath = '';
+          for (let i = 0; i < pathParts.length - 1; i++) {
+            currentPath += pathParts[i] + '/';
+            if (!folderMap[currentPath]) {
+              const parentPath = currentPath.split('/').slice(0, -2).join('/') + '/';
+              const parentFolderId = folderMap[parentPath] || null;
+              const folder = await createDriveFolder(pathParts[i], parentFolderId);
+              folderMap[currentPath] = folder.id;
+            }
+          }
+          parentId = folderMap[currentPath];
+        }
+      }
+      await uploadFileToDrive(file, parentId);
+      uploaded++;
+      uploadStatus.textContent = `Uploading... (${uploaded}/${files.length})`;
+    }
+    uploadStatus.textContent = 'Upload complete! Files and folders have been uploaded to your Google Drive.';
+    uploadStatus.classList.remove('text-yellow-300', 'text-red-400');
+    uploadStatus.classList.add('text-green-400');
+  } catch (err) {
+    uploadStatus.textContent = 'Upload failed: ' + err.message;
+    uploadStatus.classList.remove('text-yellow-300', 'text-green-400');
+    uploadStatus.classList.add('text-red-400');
+  } finally {
+    uploadBtn.disabled = false;
+  }
 });
