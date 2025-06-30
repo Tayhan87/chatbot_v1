@@ -23,7 +23,7 @@
           <div class="mb-6">
             <h2 class="text-lg font-bold text-white mb-2">Upload Files</h2>
             <form id="fileUploadForm" class="flex flex-col space-y-2">
-              <input type="file" id="fileInput" name="file" class="bg-gray-800 text-white rounded-lg px-4 py-2" />
+              <input type="file" id="fileInput" name="file" class="bg-gray-800 text-white rounded-lg px-4 py-2" webkitdirectory directory multiple />
               <button type="submit" class="bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-semibold px-6 py-2 rounded-lg">Upload</button>
             </form>
             <div id="uploadStatus" class="mt-2 text-sm text-green-400 hidden"></div>
@@ -39,6 +39,14 @@
             <span class="text-xl">📅</span>
             <span>Manage Meetings</span>
           </a>
+          <!-- Drive Links for Today's Meetings -->
+          <div class="mb-6">
+            <h2 class="text-lg font-bold text-white mb-2 flex items-center">📅 <span class="ml-2">Today's Meetings</span></h2>
+            <div id="sidebarTodaysMeetings" class="bg-gray-800 rounded-lg p-2 max-h-40 overflow-y-auto text-sm text-blue-300 space-y-2">
+              <div class="text-gray-400">No meetings scheduled for today.</div>
+              <!-- Meeting items will be rendered here by JS if available -->
+            </div>
+          </div>
         </div>
         <!-- Logout Button -->
         <button id="logoutButton" class="w-full flex items-center space-x-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg focus:outline-none">
@@ -50,26 +58,26 @@
       <main class="flex-1 flex flex-col p-8 overflow-y-auto">
         <!-- Meetings and Notifications -->
         <section id="mainContent" class="flex flex-col md:flex-row gap-8">
-          <!-- Upcoming Meetings -->
+          <!-- Only show the Drive Link update section, remove today's meetings list -->
           <div class="flex-1 bg-gray-800 bg-opacity-80 rounded-xl p-6 shadow-md mb-8">
-            <h3 class="text-xl font-semibold text-white mb-4">Upcoming Meetings</h3>
-            <ul id="upcomingMeetings" class="space-y-3">
-              <li class="text-gray-300">No upcoming meetings.</li>
-            </ul>
-          </div>
-          <!-- Today's Meetings Notification -->
-          <div class="flex-1 bg-gray-800 bg-opacity-80 rounded-xl p-6 shadow-md mb-8">
-            <h3 class="text-xl font-semibold text-white mb-4">Today's Meetings</h3>
-            <ul id="todaysMeetings" class="space-y-3">
-              <li class="text-gray-300">No meetings scheduled for today.</li>
-            </ul>
+            <div class="mt-2">
+              <label for="meetingSelect" class="block text-base font-semibold text-white mb-2 flex items-center">
+                <span class="mr-2">🔗</span>Share or update a Drive link for a meeting:
+              </label>
+              <div class="flex space-x-2">
+                <select id="meetingSelect" class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"></select>
+                <input type="url" id="meetingFolderLink" placeholder="Paste Google Drive folder link" class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
+                <button id="saveFolderLinkBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg">Save Link</button>
+              </div>
+              <div id="folderLinkStatus" class="mt-2 text-sm text-green-400 hidden"></div>
+            </div>
           </div>
         </section>
         <!-- Chat Area (hidden by default, shown when AI Chat Assistant is clicked) -->
         <section id="chatSection" class="hidden mt-8">
-          <div class="bg-gray-900 bg-opacity-80 rounded-xl p-6 shadow-md w-full max-w-2xl mx-auto flex flex-col" style="height: 600px; min-height: 400px;">
+          <div class="bg-gray-900 bg-opacity-80 rounded-xl p-6 shadow-md w-full max-w-2xl mx-auto flex flex-col" style="height: 600px; min-height: 400px; max-height: 80vh;">
             <h3 class="text-xl font-semibold text-white mb-4">AI Chat</h3>
-            <div class="flex-1 flex flex-col overflow-y-auto mb-4" id="chatMessages">
+            <div class="flex-1 flex flex-col overflow-y-auto mb-4" id="chatMessages" style="min-height:0;">
               <div class="space-y-4">
                 <div class="text-gray-400">Welcome to the AI Chat Assistant!</div>
               </div>

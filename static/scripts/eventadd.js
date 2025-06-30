@@ -71,22 +71,8 @@ class MeetingManager {
       });
 
       if (response.ok) {
-        const savedMeeting = await response.json();
-
-        if (this.currentEditingId) {
-          // Update existing meeting
-          const index = this.meetings.findIndex(
-            (m) => m.id === this.currentEditingId
-          );
-          if (index !== -1) {
-            this.meetings[index] = savedMeeting;
-          }
-        } else {
-          // Add new meeting
-          this.meetings.push(savedMeeting);
-        }
-
-        this.renderMeetings(); //111111111111111111111111111111111111111111111111111111
+        await this.loadMeetings();
+        this.currentEditingId = null;
         return true;
       } else {
         alert("Failed to save meeting. Please try again.");
@@ -112,8 +98,7 @@ class MeetingManager {
       });
 
       if (response.ok) {
-        this.meetings = this.meetings.filter((m) => m.id !== id);
-        this.renderMeetings(); //1111111111111111111111111111111111111111111111111
+        await this.loadMeetings();
       } else {
         alert("Failed to delete meeting. Please try again.");
       }
@@ -186,40 +171,30 @@ class MeetingManager {
     document.getElementById("meetingForm").reset();
     this.currentEditingId = null;
     document.getElementById("meetingModal").classList.remove("hidden");
+    // Clear any previous error messages
+    this.clearFormErrors();
   }
 
-  // In eventadd.js
   openEditModal(id) {
-    // Use loose equality (==) to match string ID with a potential number ID
     const meeting = this.meetings.find((m) => m.id == id);
     if (!meeting) {
       console.error("Meeting not found for ID:", id);
       return;
     }
-
-    let displayTime = meeting.time;
-    let timeStr = new Date(displayTime);
-    const options = {
-      timeZone: "Asia/Dhaka",
-      hour: "numeric",
-      minute: "2-digit",
-      // second: "2-digit",
-      hourCycle: "h23",
-    };
-    console.log(meeting.folder);
-    let stime = timeStr.toLocaleTimeString("en-US", options).slice(0, 5);
-
     document.getElementById("modalTitle").textContent = "Edit Meeting";
     document.getElementById("submitBtn").textContent = "Update Meeting";
     document.getElementById("meetingTitle").value = meeting.title;
-    document.getElementById("meetingDate").value = meeting.date;
-    document.getElementById("meetingTime").value = stime;
+    document.getElementById("meetingDate").value = meeting.date && meeting.date.length > 10 ? meeting.date.slice(0,10) : meeting.date;
+    document.getElementById("meetingTime").value = meeting.time && meeting.time.length > 5 ? meeting.time.slice(0,5) : meeting.time;
     document.getElementById("meetingLink").value = meeting.link || "";
     document.getElementById("meetingFolder").value = meeting.folder || "";
-    document.getElementById("meetingDescription").value =
-      meeting.description || "";
+    document.getElementById("meetingDescription").value = meeting.description || "";
+    document.getElementById("meetingDuration").value = meeting.duration || "";
+    document.getElementById("meetingPlatform").value = meeting.platform || "";
+    document.getElementById("meetingReminder").value = meeting.reminder || "";
     this.currentEditingId = id;
     document.getElementById("meetingModal").classList.remove("hidden");
+    this.clearFormErrors();
   }
 
   closeModal() {
@@ -227,28 +202,127 @@ class MeetingManager {
     this.currentEditingId = null;
   }
 
+  clearFormErrors() {
+    const errorDiv = document.getElementById("formErrors");
+    if (errorDiv) errorDiv.remove();
+    const fields = [
+      "meetingTitle",
+      "meetingDate",
+      "meetingTime",
+      "meetingLink",
+      "meetingFolder",
+      "meetingDuration",
+      "meetingPlatform",
+      "meetingReminder"
+    ];
+    fields.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.removeAttribute("aria-invalid");
+    });
+  }
+
+  showFormErrors(errors) {
+    this.clearFormErrors();
+    const form = document.getElementById("meetingForm");
+    const errorDiv = document.createElement("div");
+    errorDiv.id = "formErrors";
+    errorDiv.className = "text-red-500 mb-2";
+    errorDiv.setAttribute("role", "alert");
+    errorDiv.setAttribute("aria-live", "assertive");
+    errorDiv.innerHTML = errors.map(e => `<div>${e}</div>`).join("");
+    form.prepend(errorDiv);
+    errors.forEach(err => {
+      const match = err.match(/'(.*?)'/);
+      if (match) {
+        const el = document.getElementById(match[1]);
+        if (el) el.setAttribute("aria-invalid", "true");
+      }
+    });
+  }
+
   async handleSubmit(e) {
     e.preventDefault();
+    this.clearFormErrors();
+    const errors = [];
+    const title = document.getElementById("meetingTitle").value.trim();
+    const date = document.getElementById("meetingDate").value;
+    const time = document.getElementById("meetingTime").value;
+    const link = document.getElementById("meetingLink").value.trim();
+    const folder = document.getElementById("meetingFolder").value.trim();
+    const description = document.getElementById("meetingDescription").value.trim();
+    const duration = document.getElementById("meetingDuration").value;
+    const platform = document.getElementById("meetingPlatform").value;
+    const reminder = document.getElementById("meetingReminder").value;
+
+    // Required fields
+    if (!title) errors.push("'meetingTitle' is required.");
+    if (!date) errors.push("'meetingDate' is required.");
+    if (!time) errors.push("'meetingTime' is required.");
+    if (!duration) errors.push("'meetingDuration' is required.");
+    if (!platform) errors.push("'meetingPlatform' is required.");
+    if (!link) errors.push("'meetingLink' is required.");
+    if (!reminder) errors.push("'meetingReminder' is required.");
+    if (!folder) errors.push("'meetingFolder' is required.");
+
+    // End time must be after start time
+    if (time && duration) {
+      const [h, m] = time.split(":").map(Number);
+      const start = new Date(date + 'T' + time);
+      const end = new Date(start.getTime() + parseInt(duration) * 60000);
+      if (end <= start) {
+        errors.push("End time must be after start time.");
+      }
+    }
+
+    // Meeting link must be a valid URL
+    if (link && !/^https?:\/\/.+\..+/.test(link)) {
+      errors.push("Meeting link must be a valid URL.");
+    }
+
+    // Date can't be in the past
+    const today = new Date();
+    const selectedDate = new Date(date + 'T' + (time || '00:00'));
+    if (date && selectedDate < today.setHours(0,0,0,0)) {
+      errors.push("You cannot schedule a meeting in the past. Please select today or a future date.");
+    }
+
+    if (errors.length > 0) {
+      this.showFormErrors(errors);
+      return;
+    }
 
     const meetingData = {
-      title: document.getElementById("meetingTitle").value,
-      date: document.getElementById("meetingDate").value,
-      time: document.getElementById("meetingTime").value,
-      link: document.getElementById("meetingLink").value,
-      folder: document.getElementById("meetingFolder").value,
-      description: document.getElementById("meetingDescription").value,
+      title,
+      date,
+      time,
+      link,
+      folder,
+      description,
+      duration,
+      platform,
+      reminder
     };
 
     const success = await this.saveMeeting(meetingData);
     if (success) {
       this.closeModal();
-      location.reload(true); // Reload to reflect changes
+      // Optionally show a success message
+      // alert('Meeting saved successfully!');
     }
   }
 
   formatDate(dateStr) {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
+    // Accepts 'YYYY-MM-DD' or ISO string
+    if (!dateStr) return '';
+    let dateObj;
+    if (dateStr.length === 10) {
+      // 'YYYY-MM-DD'
+      dateObj = new Date(dateStr + 'T00:00:00');
+    } else {
+      dateObj = new Date(dateStr);
+    }
+    if (isNaN(dateObj)) return 'Invalid Date';
+    return dateObj.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -256,18 +330,20 @@ class MeetingManager {
   }
 
   formatTime(timeStr) {
-    const utcDate = new Date(timeStr);
-
-    // Convert to Bangladesh time (UTC+6)
-    const options = {
-      timeZone: "Asia/Dhaka",
-      hour: "numeric",
+    // Accepts 'HH:MM' or ISO string
+    if (!timeStr) return '';
+    if (/^\d{2}:\d{2}$/.test(timeStr)) {
+      // 'HH:MM' format
+      return timeStr;
+    }
+    // Try to parse as ISO string
+    const dateObj = new Date(timeStr);
+    if (isNaN(dateObj)) return 'Invalid Time';
+    return dateObj.toLocaleTimeString("en-US", {
+      hour: "2-digit",
       minute: "2-digit",
-      // second: "2-digit",
       hour12: true,
-    };
-
-    return utcDate.toLocaleTimeString("en-US", options);
+    });
   }
 
   async folderList() {
@@ -303,129 +379,54 @@ class MeetingManager {
   }
 
   renderMeetings() {
-    const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const currentTime = now.toTimeString().split(" ")[0].substring(0, 5);
-
-    const upcoming = this.meetings
-      .filter((meeting) => {
-        let meetingTime = meeting.date;
-        if (meeting.date > today) return true;
-        if (meeting.date === today && meeting.time > currentTime) return true;
-        return false;
-      })
-      .sort((a, b) => {
-        if (a.date !== b.date) return a.date.localeCompare(b.date);
-        return a.time.localeCompare(b.time);
-      });
-
-    const past = this.meetings
-      .filter((meeting) => {
-        if (meeting.date < today) return true;
-        if (meeting.date === today && meeting.time <= currentTime) return true;
-        return false;
-      })
-      .sort((a, b) => {
-        if (a.date !== b.date) return b.date.localeCompare(a.date);
-        return b.time.localeCompare(a.time);
-      });
-
-    document.getElementById("upcomingCount").textContent = upcoming.length;
-    document.getElementById("pastCount").textContent = past.length;
-
-    this.renderMeetingList("upcomingMeetings", upcoming, true);
-    this.renderMeetingList("pastMeetings", past, false);
-  }
-
-  // In eventadd.js
-  renderMeetingList(containerId, meetings, isUpcoming) {
-    const container = document.getElementById(containerId);
-
-    if (meetings.length === 0) {
-      container.innerHTML =
-        '<div class="text-gray-300 text-center py-4">No meetings</div>';
+    const container = document.getElementById("meetingsList");
+    if (!container) return;
+    if (this.meetings.length === 0) {
+      container.innerHTML = '<div class="text-gray-300 text-center py-4">No meetings yet.</div>';
       return;
     }
+    container.innerHTML = this.meetings.map(meeting => `
+      <div class="meeting-card rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="flex-1">
+          <h4 class="text-white font-medium text-lg mb-1">${meeting.title}</h4>
+          <div class="text-gray-300 text-sm mb-1">
+            ${this.formatDate(meeting.date)} at ${this.formatTime(meeting.time)}
+            ${meeting.duration ? `&bull; ${meeting.duration} min` : ''}
+            ${meeting.platform ? `&bull; ${meeting.platform}` : ''}
+          </div>
+          ${meeting.description ? `<div class="text-gray-400 text-sm mb-1">${meeting.description}</div>` : ''}
+          ${meeting.link ? `<a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-1 transition-colors"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>Join Meeting</a>` : ''}
+          ${meeting.reminder && meeting.reminder !== 'none' ? `<div class="text-xs text-gray-400 mt-1">Reminder: ${this.getReminderText(meeting.reminder)}</div>` : ''}
+          ${meeting.folder ? `<div class="text-blue-300 text-xs mt-1">📁 ${meeting.folder}</div>` : ''}
+        </div>
+        <div class="flex space-x-2 mt-4 md:mt-0 md:ml-4">
+          <button onclick="meetingManager.openEditModal('${meeting.id}')"
+            class="action-btn bg-yellow-400 text-black rounded-full p-2 hover:bg-yellow-500 shadow"
+            aria-label="Edit meeting">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 13l6-6m2 2l-6 6m-2 2h6" />
+            </svg>
+          </button>
+          <button onclick="meetingManager.deleteMeeting('${meeting.id}')"
+            class="action-btn bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow"
+            aria-label="Delete meeting">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
 
-    container.innerHTML = meetings
-      .map(
-        (meeting) =>
-          `
-            <div class="meeting-card rounded-lg p-4">
-                <div class="flex justify-between items-start">
-                    <div class="flex-1">
-                        <h4 class="text-white font-medium text-lg">${
-                          meeting.title
-                        }</h4>
-                        <div class="text-gray-300 text-sm mt-1">
-                            ${this.formatDate(
-                              meeting.date
-                            )} at ${this.formatTime(meeting.time)}
-                        </div>
-                        ${
-                          meeting.folder
-                            ? `
-                            <div class="text-blue-300 text-xs mt-1">
-                                📁 ${this.getFolderDisplayName(meeting.folder)}
-                            </div>
-                        `
-                            : ""
-                        }
-                        ${
-                          meeting.description
-                            ? `
-                            <div class="text-gray-400 text-sm mt-2">${meeting.description}</div>
-                        `
-                            : ""
-                        }
-                        ${
-                          meeting.link
-                            ? `
-                            <a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-2 transition-colors">
-                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/>
-                                </svg>
-                                Join Meeting
-                            </a>
-                        `
-                            : ""
-                        }
-                    </div>
-                    <div class="flex space-x-2 ml-4">
-                        ${/* --- START OF FIX --- */ ""}
-                        ${
-                          isUpcoming
-                            ? `
-                            <button 
-                                onclick="meetingManager.openEditModal('${meeting.id}')"
-                                class="text-blue-400 m-5 hover:text-blue-300 transition-colors"
-                                title="Edit Meeting"
-                            >
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                                </svg>
-                            </button>
-                        `
-                            : ""
-                        }
-                        <button 
-                            onclick="meetingManager.deleteMeeting('${
-                              meeting.id
-                            }')"
-                            class="text-gray-400 m-5 hover:text-red-400 transition-colors"
-                            title="Delete Meeting"
-                        >
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"/>
-                            </svg>
-                        </button>
-                        ${/* --- END OF FIX --- */ ""}
-                    </div>
-                </div>
-            </div>
-        `
-      )
-      .join("");
+  getReminderText(reminder) {
+    switch(reminder) {
+      case '5': return '5 minutes before';
+      case '10': return '10 minutes before';
+      case '30': return '30 minutes before';
+      case '60': return '1 hour before';
+      default: return 'No reminder';
+    }
   }
 }
 

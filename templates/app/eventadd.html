@@ -9,181 +9,119 @@
     <link rel="stylesheet" href="{% static 'css/eventadd.css' %}" />
   </head>
   <body class="min-h-screen bg-image">
+    <!-- Back Button -->
+    <button onclick="window.history.back()" class="absolute top-6 left-6 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold flex items-center gap-2">
+      <span class="text-xl">⬅️</span> <span>Back</span>
+    </button>
     <!-- Dark overlay for better contrast -->
     <div class="absolute inset-0 bg-gray-900 bg-opacity-60"></div>
-
-    <div class="relative z-10 max-w-4xl mx-auto p-6">
+    <div class="relative z-10 max-w-3xl mx-auto p-6">
       <!-- Header -->
-      <div class="glass-effect rounded-lg p-6 mb-6">
+      <div class="glass-effect rounded-3xl shadow-2xl p-8 mb-6">
         <div class="flex justify-between items-center">
           <div>
             <h1 class="text-3xl font-bold text-white mb-2">Meeting Manager</h1>
-            <p class="text-gray-300">
-              Manage your meetings with Google Calendar integration
-            </p>
+            <p class="text-gray-300">Manage your meetings with Google Calendar integration</p>
           </div>
-          <button
-            id="addMeetingBtn"
-            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
-          >
-            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-            </svg>
-            Add Meeting
+          <button id="addMeetingBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center">
+            <span class="mr-2">➕</span> Add Meeting
           </button>
         </div>
       </div>
-
-      <!-- Upcoming Meetings -->
-      <div class="glass-effect rounded-lg p-6 mb-6">
-        <div class="flex items-center mb-4">
-          <h2 class="text-xl font-bold text-white">Upcoming Meetings</h2>
-          <span
-            class="ml-3 bg-green-500 text-white px-2 py-1 rounded-full text-sm"
-            id="upcomingCount"
-            >0</span
-          >
-        </div>
-        <div id="upcomingMeetings" class="space-y-3">
-          <!-- Upcoming meetings will be populated here -->
-        </div>
-      </div>
-
-      <!-- Past Meetings -->
-      <div class="glass-effect rounded-lg p-6">
-        <div class="flex items-center mb-4">
-          <h2 class="text-xl font-bold text-white">Past Meetings</h2>
-          <span
-            class="ml-3 bg-gray-500 text-white px-2 py-1 rounded-full text-sm"
-            id="pastCount"
-            >0</span
-          >
-        </div>
-        <div id="pastMeetings" class="space-y-3">
-          <!-- Past meetings will be populated here -->
+      <!-- Meetings List -->
+      <div class="glass-effect rounded-3xl shadow-2xl p-8">
+        <h2 class="text-2xl font-bold text-white mb-6">Your Meetings</h2>
+        <div id="meetingsList" class="space-y-4 max-h-[400px] overflow-y-auto">
+          <!-- Meetings will be rendered here by JS -->
         </div>
       </div>
     </div>
-
     <!-- Add/Edit Meeting Modal -->
-    <div
-      id="meetingModal"
-      class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50"
-    >
-      <div class="glass-effect rounded-lg p-6 w-full max-w-lg">
-        <div class="flex justify-between items-center mb-4">
-          <h3 id="modalTitle" class="text-lg font-bold text-white">
-            Add Meeting
-          </h3>
+    <div id="meetingModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+      <div class="glass-effect rounded-3xl shadow-2xl p-8 w-full max-w-2xl">
+        <div class="flex justify-between items-center mb-6">
+          <h3 id="modalTitle" class="text-2xl font-bold text-white">Add Meeting</h3>
           <button id="closeModal" class="text-gray-400 hover:text-white">
             <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path
-                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-              />
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
             </svg>
           </button>
         </div>
-
-        <form id="meetingForm" class="space-y-4">
+        <form id="meetingForm" class="space-y-6" aria-label="Add or edit meeting form">
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1"
-              >Meeting Title</label
-            >
-            <input
-              type="text"
-              id="meetingTitle"
-              required
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
-              placeholder="Enter meeting title"
-            />
+            <label for="meetingTitle" class="block text-sm font-medium text-gray-300 mb-2">Meeting Title <span aria-label="required" class="text-red-500">*</span></label>
+            <input type="text" id="meetingTitle" required aria-required="true" aria-label="Meeting Title" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300 placeholder-gray-400" placeholder="Enter meeting title">
           </div>
-
-          <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="meetingDescription" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+            <textarea id="meetingDescription" aria-label="Meeting Description" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300 placeholder-gray-400" placeholder="Enter meeting description (optional)"></textarea>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1"
-                >Date</label
-              >
-              <input
-                type="date"
-                id="meetingDate"
-                required
-                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
-              />
+              <label for="meetingDate" class="block text-sm font-medium text-gray-300 mb-2">Date <span aria-label="required" class="text-red-500">*</span></label>
+              <input type="date" id="meetingDate" required aria-required="true" aria-label="Meeting Date" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
             </div>
-
             <div>
-              <label class="block text-sm font-medium text-gray-300 mb-1"
-                >Time</label
-              >
-              <input
-                type="time"
-                id="meetingTime"
-                required
-                class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
-              />
+              <label for="meetingTime" class="block text-sm font-medium text-gray-300 mb-2">Time <span aria-label="required" class="text-red-500">*</span></label>
+              <input type="time" id="meetingTime" required aria-required="true" aria-label="Meeting Time" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
             </div>
           </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1"
-              >Meeting Link</label
-            >
-            <input
-              type="url"
-              id="meetingLink"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
-              placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-            />
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="meetingDuration" class="block text-sm font-medium text-gray-300 mb-2">Duration <span aria-label="required" class="text-red-500">*</span></label>
+              <select id="meetingDuration" required aria-required="true" aria-label="Meeting Duration" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
+                <option value="">Select duration</option>
+                <option value="15">15 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="60">1 hour</option>
+                <option value="90">1.5 hours</option>
+                <option value="120">2 hours</option>
+              </select>
+            </div>
+            <div>
+              <label for="meetingPlatform" class="block text-sm font-medium text-gray-300 mb-2">Platform <span aria-label="required" class="text-red-500">*</span></label>
+              <select id="meetingPlatform" required aria-required="true" aria-label="Meeting Platform" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
+                <option value="">Select platform</option>
+                <option value="Zoom">Zoom</option>
+                <option value="Meet">Google Meet</option>
+                <option value="Teams">Microsoft Teams</option>
+              </select>
+            </div>
           </div>
-
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="meetingLink" class="block text-sm font-medium text-gray-300 mb-2">Meeting Link <span aria-label="required" class="text-red-500">*</span></label>
+              <input type="url" id="meetingLink" required aria-required="true" aria-label="Meeting Link" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300 placeholder-gray-400" placeholder="Paste or auto-fill meeting link">
+            </div>
+            <div>
+              <label for="meetingReminder" class="block text-sm font-medium text-gray-300 mb-2">Reminder <span aria-label="required" class="text-red-500">*</span></label>
+              <select id="meetingReminder" required aria-required="true" aria-label="Meeting Reminder" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
+                <option value="">Select reminder</option>
+                <option value="none">No reminder</option>
+                <option value="5">5 minutes before</option>
+                <option value="10">10 minutes before</option>
+                <option value="30">30 minutes before</option>
+                <option value="60">1 hour before</option>
+              </select>
+            </div>
+          </div>
           <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1"
-              >Information Folder</label
-            >
-            <select
-              id="meetingFolder"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500"
-            >
+            <label for="meetingFolder" class="block text-sm font-medium text-gray-300 mb-2">Google Drive Folder <span aria-label="required" class="text-red-500">*</span></label>
+            <select id="meetingFolder" required aria-required="true" aria-label="Google Drive Folder Name" class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300">
               <option value="">Select folder for information extraction</option>
-
               {% for folder in folders %}
               <option value="{{ folder.id }}">{{ folder.name }}</option>
               {% endfor %}
             </select>
           </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-300 mb-1"
-              >Description (Optional)</label
-            >
-            <textarea
-              id="meetingDescription"
-              rows="3"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 text-white rounded focus:outline-none focus:border-blue-500 resize-none"
-              placeholder="Meeting agenda or additional notes..."
-            ></textarea>
-          </div>
-
-          <div class="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              id="cancelBtn"
-              class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              id="submitBtn"
-              class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded transition-colors"
-            >
-              Save Meeting
-            </button>
+          <div class="flex justify-end space-x-4">
+            <button type="button" id="cancelBtn" class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl transition-all duration-300">Cancel</button>
+            <button type="submit" id="submitBtn" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-all duration-300">Save Meeting</button>
           </div>
         </form>
       </div>
     </div>
-
     <script src="{% static 'scripts/eventadd.js' %}"></script>
   </body>
 </html>

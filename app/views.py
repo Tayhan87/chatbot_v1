@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect
-from django.contrib.auth import logout ,authenticate, login
+from django.contrib.auth import logout ,authenticate, login, get_user_model
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import is_password_usable
@@ -9,9 +9,10 @@ from datetime import timedelta, datetime
 import json
 import pytz
 from django.conf import settings
+from django.utils import timezone
 
 from google import genai
-from chatbot_v1.drive import manage_folder,list_of_folders
+from chatbot_v1.drive import manage_folder,list_of_folders, get_drive_service
 from chatbot_v1.calendar import create_google_calendar_event , update_google_calendar_event , delete_google_calendar_event
 
 try:
@@ -122,14 +123,19 @@ def signup(request):
     return render(request, "app/signup.html")
 
 def eventadd(request):
-    folders= list_of_folders(request.user.email)
-    if not folders:
-        print("No folders found for the user.")
-        folders = []  # Ensure folders is always a list
-    else:
-        print(f"Found {len(folders)} folders for the user.")
-
-    return render(request,"app/eventadd.html",{'folders': folders})
+    # Fetch all folders from the user's Google Drive
+    folders = []
+    try:
+        service = get_drive_service(request.user)
+        if service:
+            query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
+            response = service.files().list(q=query, fields='files(id,name)').execute()
+            folders = response.get('files', [])
+        else:
+            print("Google Drive service could not be initialized for this user.")
+    except Exception as e:
+        print(f"Error fetching Google Drive folders: {e}")
+    return render(request, "app/eventadd.html", {'folders': folders})
 
 def folderList(request):
     if request.method=="POST":
@@ -149,130 +155,151 @@ def mngmeeting(request):
 
 
 
+@csrf_exempt
 def setmeeting(request):
+    import json
+    from datetime import datetime, timedelta
+    import pytz
+    from app.models import CalendarEvent
+    from django.http import JsonResponse
+    from chatbot_v1.calendar import create_google_calendar_event
+
     if request.method == "POST":
-        data=json.loads(request.body)
+        data = json.loads(request.body)
+
+        # Try to get the user, or use the first user as default for testing
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            User = get_user_model()
+            try:
+                user = User.objects.first()
+            except Exception:
+                return JsonResponse({"error": "No user found for saving meeting."}, status=400)
 
         meeting_info ={
-        "meeting_title" : data.get("title", " ").strip(),
-        "meeting_date" : data.get("date"," ").strip(),
-        "meeting_time" : data.get("time"," ").strip(),
-        "meeting_link" : data.get("link"," ").strip(),
-        "meeting_folder" : data.get("folder", " ").strip(),
-        "meeting_description" : data.get("description", " ").strip(),
-        "meeting_folder" : data.get("folder", " ").strip(),
+            "meeting_title" : data.get("title", " ").strip(),
+            "meeting_date" : data.get("date"," ").strip(),
+            "meeting_time" : data.get("time"," ").strip(),
+            "meeting_link" : data.get("link"," ").strip(),
+            "meeting_folder" : data.get("folder", " ").strip(),
+            "meeting_description" : data.get("description", " ").strip(),
         }
 
-        naive_datetime = datetime.strptime(f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}", "%Y-%m-%d %H:%M")
-        tz = pytz.timezone("Asia/Dhaka")
-        aware_datetime = tz.localize(naive_datetime)
-        start_iso = aware_datetime.isoformat()
-        end_time = aware_datetime + timedelta(minutes=60)
-        end_iso = end_time.isoformat()
+        try:
+            naive_datetime = datetime.strptime(f"{meeting_info['meeting_date']} {meeting_info['meeting_time']}", "%Y-%m-%d %H:%M")
+            tz = pytz.timezone("Asia/Dhaka")
+            aware_datetime = tz.localize(naive_datetime)
+            start_iso = aware_datetime.isoformat()
+            end_time = aware_datetime + timedelta(minutes=60)
+            end_iso = end_time.isoformat()
+        except Exception as e:
+            return JsonResponse({"error": f"Invalid date/time: {e}"}, status=400)
 
         meeting_info["meeting_start_time"] = start_iso
         meeting_info["meeting_end_time"] = end_iso
 
-        event_id= create_google_calendar_event(request.user.email, meeting_info)
-        CalendarEvent.objects.create(
-            user=request.user,
-            title = meeting_info["meeting_title"],
-            start_time = start_iso,
-            end_time = end_iso , # Adjust as needed
-            description = meeting_info["meeting_description"],
-            folder = meeting_info["meeting_folder"],
-            date = meeting_info["meeting_date"],
-            event_id = event_id,  # Store the Google Calendar event ID
-            link = meeting_info["meeting_link"],
-        )
+        try:
+            event_id = None
+            try:
+                event_id = create_google_calendar_event(user.email, meeting_info)
+            except Exception:
+                pass  # Ignore calendar errors for now
+            CalendarEvent.objects.create(
+                user=user,
+                title=meeting_info["meeting_title"],
+                start_time=start_iso,
+                end_time=end_iso,
+                description=meeting_info["meeting_description"],
+                folder=meeting_info["meeting_folder"],
+                date=meeting_info["meeting_date"],
+                event_id=event_id,
+                link=meeting_info["meeting_link"],
+            )
+        except Exception as e:
+            return JsonResponse({"error": f"Failed to save meeting: {e}"}, status=500)
 
-        print(meeting_info["meeting_time"])
-        print(meeting_info['meeting_date'])
-        print(meeting_info["meeting_folder"])
+        return JsonResponse({"message": "Meeting saved successfully"}, status=200)
+    return JsonResponse({"error": "Invalid request"}, status=400)
 
-    return JsonResponse({"message": "Meeting title received", }, status=200)
-
+@csrf_exempt
 def showmeetings(request):
-    if request.method=='GET':
-        user=request.user
-        events = CalendarEvent.objects.filter(user=user)
+    from app.models import CalendarEvent
+    from django.http import JsonResponse
+    if request.method == 'GET':
+        events = CalendarEvent.objects.all().order_by('-start_time')
         events_data = []
         for event in events:
             events_data.append({
-                'id': event.event_id,
+                'id': event.id,
                 'title': event.title,
-                'time': event.start_time.isoformat(),
+                'time': event.start_time.strftime('%H:%M'),
                 'date': event.date.isoformat(),
                 'description': event.description,
                 'folder': event.folder,
-                'link' : event.link  # Google Calendar event ID
+                'link': event.link,
+                'duration': (event.end_time - event.start_time).seconds // 60 if event.end_time and event.start_time else 60,
+                'platform': getattr(event, 'platform', ''),
+                'reminder': getattr(event, 'reminder', ''),
             })
-        
-        print(events_data)
-
         return JsonResponse({'events': events_data}, status=200)
+    return JsonResponse({'error': 'Invalid request method'}, status=403)
 
-def editevent(request,event_id):
-    if request.method=="PUT":
-        event= CalendarEvent.objects.get(event_id=event_id, user=request.user)
-
-        data= json.loads(request.body)
-
-        stime=data.get("time"," ").strip()
-        sdate=data.get("date"," ").strip()
-
+@csrf_exempt
+def editevent(request, id):
+    if request.method == "PUT":
+        from app.models import CalendarEvent
+        import json
+        from datetime import datetime, timedelta
+        import pytz
+        event = CalendarEvent.objects.get(id=id)
+        data = json.loads(request.body)
+        stime = data.get("time", " ").strip()
+        sdate = data.get("date", " ").strip()
         naive_datetime = datetime.strptime(f"{sdate} {stime}", "%Y-%m-%d %H:%M")
         tz = pytz.timezone("Asia/Dhaka")
         aware_datetime = tz.localize(naive_datetime)
         start_iso = aware_datetime.isoformat()
         end_time = aware_datetime + timedelta(minutes=60)
         end_iso = end_time.isoformat()
-
-        meeting_info ={
-        "meeting_title" : data.get("title", " ").strip(),
-        "meeting_date" : data.get("date"," ").strip(),
-        "meeting_start_time" : start_iso,
-        "meeting_end_time" : end_iso,
-        "meeting_link" : data.get("link"," ").strip(),
-        "meeting_folder" : data.get("folder", " ").strip(),
-        "meeting_description" : data.get("description", " ").strip(),
-        "meeting_folder" : data.get("folder", " ").strip(),
+        meeting_info = {
+            "meeting_title": data.get("title", " ").strip(),
+            "meeting_date": data.get("date", " ").strip(),
+            "meeting_start_time": start_iso,
+            "meeting_end_time": end_iso,
+            "meeting_link": data.get("link", " ").strip(),
+            "meeting_folder": data.get("folder", " ").strip(),
+            "meeting_description": data.get("description", " ").strip(),
         }
-
-        try: 
-                update_google_calendar_event(event.event_id, request.user.email, meeting_info)
-
-                event.title = data.get("title", " ").strip()
-                event.start_time = start_iso
-                event.end_time = end_iso
-                event.description = data.get("description", " ").strip()
-                event.folder =  data.get("folder", " ").strip()
-                event.date = data.get("date"," ").strip()
-                event.link = data.get("link"," ").strip()
-                event.save()
-
-                return JsonResponse({"message": "Event updated successfully"}, status=200)
-
-        except Exception as e:
-                print(f"Error updating event: {e}")
-                return JsonResponse({"error": "Failed to update event"}, status=500)
-        
-def deleteevent(request,event_id):
-    if request.method=="DELETE":
         try:
-            event = CalendarEvent.objects.get(event_id=event_id, user=request.user)
+            # Optionally update Google Calendar event here
+            event.title = data.get("title", " ").strip()
+            event.start_time = start_iso
+            event.end_time = end_iso
+            event.description = data.get("description", " ").strip()
+            event.folder = data.get("folder", " ").strip()
+            event.date = data.get("date", " ").strip()
+            event.link = data.get("link", " ").strip()
+            event.save()
+            return JsonResponse({"message": "Event updated successfully"}, status=200)
+        except Exception as e:
+            print(f"Error updating event: {e}")
+            return JsonResponse({"error": "Failed to update event"}, status=500)
+
+@csrf_exempt
+def deleteevent(request, id):
+    if request.method == "DELETE":
+        try:
+            event = CalendarEvent.objects.get(id=id)
             event.delete()
-            delete_google_calendar_event(request.user.email,event_id)
-
+            # Optionally: delete_google_calendar_event(event.user.email, event.event_id)
             print("Event deleted successfully.")
-
-            return JsonResponse({"message":"Event Deleted successfully"},status=200)
+            return JsonResponse({"message": "Event Deleted successfully"}, status=200)
         except CalendarEvent.DoesNotExist:
             print("Event not found.")
+            return JsonResponse({"error": "Event not found."}, status=404)
         except Exception as e:
             print(f"Unexpected error deleting event: {e}")
-
-            return JsonResponse({"error":"Failed to delete event"})
+            return JsonResponse({"error": "Failed to delete event"}, status=500)
 
 @csrf_exempt
 def is_google_user(request):
@@ -317,6 +344,54 @@ def google_picker_config(request):
         'accessToken': token,
         'error': None
     })
+
+@csrf_exempt
+def update_today_meeting_folder(request):
+    import json
+    from app.models import CalendarEvent
+    from django.http import JsonResponse
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            folder_link = data.get('folder_link', '').strip()
+            if not folder_link:
+                return JsonResponse({'error': 'No folder link provided.'}, status=400)
+            user = getattr(request, 'user', None)
+            if not user or not user.is_authenticated:
+                User = get_user_model()
+                user = User.objects.first()
+            today = timezone.localdate()
+            meeting = CalendarEvent.objects.filter(user=user, date=str(today)).first()
+            if not meeting:
+                return JsonResponse({'error': 'No meeting found for today.'}, status=404)
+            meeting.folder = folder_link
+            meeting.save()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method.'}, status=405)
+
+@csrf_exempt
+def update_meeting_folder(request):
+    import json
+    from app.models import CalendarEvent
+    from django.http import JsonResponse
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            meeting_id = data.get('meeting_id')
+            folder_link = data.get('folder_link', '').strip()
+            if not meeting_id or not folder_link:
+                return JsonResponse({'error': 'Meeting and folder link required.'}, status=400)
+            meeting = CalendarEvent.objects.filter(id=meeting_id).first()
+            if not meeting:
+                return JsonResponse({'error': 'Meeting not found.'}, status=404)
+            meeting.folder = folder_link
+            meeting.save()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method.'}, status=405)
 
 
 

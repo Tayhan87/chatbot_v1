@@ -219,7 +219,9 @@ class ChatInterface {
   }
 
   addMessage(text, type) {
-    const messagesContainer = this.chatMessages.querySelector(".space-y-4");
+    // Robust: use .space-y-4 if present, else fallback to #chatMessages
+    let messagesContainer = this.chatMessages.querySelector(".space-y-4");
+    if (!messagesContainer) messagesContainer = this.chatMessages;
     const messageWrapper = document.createElement("div");
     let formattedText = text
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
@@ -260,32 +262,28 @@ class ChatInterface {
       messagesContainer.appendChild(messageWrapper);
       this.scrollToBottom();
     } else if (type === "bot-typing") {
-      // Show a typing bubble for the bot
+      // Add a visible typing bubble for AI
       messageWrapper.className = "flex justify-start ai-typing-bubble";
       messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance flex items-center">
-          <div class="flex items-center space-x-2 mb-2">
-            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"></div>
-            <span class="text-xs text-[#4FC1E9] font-semibold">AI Assistant</span>
-          </div>
-          <span class="typing-dots">
-            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce"></span>
-            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full mr-1 animate-bounce delay-100"></span>
-            <span class="inline-block w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200"></span>
-          </span>
+        <div class="max-w-xs lg:max-w-md ai-message-glass text-white p-4 rounded-2xl rounded-bl-sm border border-[#4FC1E9] border-opacity-30 opacity-60 italic">
+          <span>AI is typing...</span>
         </div>
       `;
       messagesContainer.appendChild(messageWrapper);
       this.scrollToBottom();
       return messageWrapper;
-    } else {
-      // Animate AI reply letter by letter
+    } else if (type === "bot") {
+      // Only remove typing bubbles, not all AI messages
+      const existingTyping = messagesContainer.querySelectorAll('.ai-typing-bubble');
+      existingTyping.forEach(el => {
+        if (el.parentNode) el.parentNode.removeChild(el);
+      });
       messageWrapper.className = "flex justify-start";
       messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md message-glass border border-gray-600 text-gray-200 p-4 rounded-2xl rounded-bl-sm message-entrance">
+        <div class="max-w-xs lg:max-w-md ai-message-glass text-white p-4 rounded-2xl rounded-bl-sm ai-message-slide border border-[#4FC1E9] border-opacity-30">
           <div class="flex items-center space-x-2 mb-2">
-            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full glow-effect"></div>
-            <span class="text-xs text-[#4FC1E9] font-semibold">AI Assistant</span>
+            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full"></div>
+            <span class="text-xs text-[#4FC1E9] font-semibold">AI</span>
           </div>
           <span class="ai-animated-reply"></span>
         </div>
@@ -299,6 +297,7 @@ class ChatInterface {
         if (i <= formattedText.length) {
           replySpan.innerHTML = formattedText.slice(0, i);
           i++;
+          messageWrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
           setTimeout(typeLetter, 18); // speed of typing
         }
       }
@@ -372,5 +371,131 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
         });
+    }
+
+    // Show only today's meetings in the dashboard
+    fetch('/showmeeting/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+      .then(response => response.json())
+      .then(data => {
+        const meetings = data.events || [];
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0, 10);
+        const todaysMeetings = meetings.filter(m => m.date && m.date.slice(0, 10) === todayStr);
+        // Populate sidebar drive links
+        const driveLinksDiv = document.getElementById('todaysDriveLinks');
+        if (driveLinksDiv) {
+          if (todaysMeetings.length === 0) {
+            driveLinksDiv.innerHTML = '<div class="text-gray-400">No drive links for today.</div>';
+          } else {
+            driveLinksDiv.innerHTML = todaysMeetings.map(m => m.folder ? `<div><span class="mr-2">📁</span><a href="${m.folder}" target="_blank" class="underline hover:text-blue-400">${m.title} (${formatTime(m.time)})</a></div>` : '').join('') || '<div class="text-gray-400">No drive links for today.</div>';
+          }
+        }
+        // Populate meetingSelect dropdown
+        const meetingSelect = document.getElementById('meetingSelect');
+        if (meetingSelect) {
+          meetingSelect.innerHTML = todaysMeetings.length === 0 ? '<option value="">No meetings today</option>' : todaysMeetings.map(m => `<option value="${m.id}">${m.title} (${formatTime(m.time)})</option>`).join('');
+        }
+        // Populate sidebar today's meetings
+        const sidebarMeetingsDiv = document.getElementById('sidebarTodaysMeetings');
+        if (sidebarMeetingsDiv) {
+          if (todaysMeetings.length === 0) {
+            sidebarMeetingsDiv.innerHTML = '<div class="text-gray-400">No meetings scheduled for today.</div>';
+          } else {
+            sidebarMeetingsDiv.innerHTML = todaysMeetings.map(m => `
+              <div class="flex flex-col bg-gray-900 bg-opacity-60 rounded-lg p-2 mb-2">
+                <div class="font-semibold text-white flex items-center"><span class="mr-2">📝</span>${m.title}</div>
+                <div class="text-xs text-gray-300 flex items-center"><span class="mr-1">⏰</span>${formatTime(m.time)}</div>
+                ${m.folder ? `<div class="text-xs mt-1"><span class="mr-1">📁</span><a href="${m.folder}" target="_blank" class="underline hover:text-blue-400">Drive Link</a></div>` : ''}
+              </div>
+            `).join('');
+          }
+        }
+      });
+
+    // Save folder link to selected today's meeting
+    const saveFolderLinkBtn = document.getElementById('saveFolderLinkBtn');
+    if (saveFolderLinkBtn) {
+      saveFolderLinkBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const folderLinkInput = document.getElementById('meetingFolderLink');
+        const folderLink = folderLinkInput.value.trim();
+        const meetingSelect = document.getElementById('meetingSelect');
+        const meetingId = meetingSelect ? meetingSelect.value : '';
+        const statusDiv = document.getElementById('folderLinkStatus');
+        if (!folderLink || !meetingId) {
+          statusDiv.textContent = 'Please select a meeting and enter a folder link.';
+          statusDiv.classList.remove('hidden', 'text-green-400');
+          statusDiv.classList.add('text-red-400');
+          return;
+        }
+        fetch('/update_meeting_folder/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': (document.cookie.split('; ').find(row => row.startsWith('csrftoken='))||'').split('=')[1] || ''
+          },
+          body: JSON.stringify({ meeting_id: meetingId, folder_link: folderLink })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            statusDiv.textContent = 'Folder link saved to meeting!';
+            statusDiv.classList.remove('hidden', 'text-red-400');
+            statusDiv.classList.add('text-green-400');
+          } else {
+            statusDiv.textContent = data.error || 'Failed to save folder link.';
+            statusDiv.classList.remove('hidden', 'text-green-400');
+            statusDiv.classList.add('text-red-400');
+          }
+        })
+        .catch(() => {
+          statusDiv.textContent = 'Failed to save folder link.';
+          statusDiv.classList.remove('hidden', 'text-green-400');
+          statusDiv.classList.add('text-red-400');
+        });
+      });
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      let dateObj;
+      if (dateStr.length === 10) {
+        dateObj = new Date(dateStr + 'T00:00:00');
+      } else {
+        dateObj = new Date(dateStr);
+      }
+      if (isNaN(dateObj)) return 'Invalid Date';
+      return dateObj.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+    }
+    function formatTime(timeStr) {
+      if (!timeStr) return '';
+      if (/^\d{2}:\d{2}$/.test(timeStr)) {
+        return timeStr;
+      }
+      const dateObj = new Date(timeStr);
+      if (isNaN(dateObj)) return 'Invalid Time';
+      return dateObj.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+    function getReminderText(reminder) {
+      switch(reminder) {
+        case '5': return '5 minutes before';
+        case '10': return '10 minutes before';
+        case '30': return '30 minutes before';
+        case '60': return '1 hour before';
+        default: return 'No reminder';
+      }
     }
 });
