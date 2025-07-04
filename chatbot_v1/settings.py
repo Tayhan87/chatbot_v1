@@ -15,7 +15,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-SITE_ID = 1
+SITE_ID = 2
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'allauth.socialaccount.providers.google',
+    'corsheaders', #added by sumon
 ]
 
 SOCIALACCOUNT_PROVIDERS = {
@@ -69,6 +70,7 @@ SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
 # SOCIALACCOUNT_QUERY_EMAIL = True
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', #added by sumon
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -176,6 +178,16 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
 GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
+
+CORS_ALLOWED_ORIGINS = [ #added by sumon
+    "chrome-extension://jdlinkojhobddhgoheiocikiblabdibn",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+SESSION_COOKIE_SAMESITE = 'None'#added by sumon
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 
 

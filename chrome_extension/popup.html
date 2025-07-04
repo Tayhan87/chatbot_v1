@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meet Wise Assistant</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      width: 380px;
+      min-height: 500px;
+      background: linear-gradient(135deg, #00B1F5 0%, #ffffff 100%);
+      color: #333;
+      overflow: hidden;
+    }
+
+    .container {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      color: #4a5568;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #718096;
+      opacity: 0.8;
+    }
+
+    #user-info {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    #user-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4a5568;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 4px 8px;
+      border-radius: 12px;
+    }
+
+    #logout-btn {
+      background: #e53e3e;
+      color: white;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    #logout-btn:hover {
+      background: #c53030;
+      transform: translateY(-1px);
+    }
+
+    .auth-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 40px 30px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+
+    .auth-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .auth-subtitle {
+      font-size: 16px;
+      color: #718096;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+    }
+
+    .btn-google {
+      background: #4285f4;
+      color: white;
+      border: none;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      box-shadow: 0 4px 15px rgba(66, 133, 244, 0.3);
+    }
+
+    .btn-google:hover {
+      background: #3367d6;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(66, 133, 244, 0.5);
+    }
+
+    .google-icon {
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      padding: 2px;
+    }
+
+    #login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .form-group {
+      position: relative;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+      background: white;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .form-input::placeholder {
+      color: #a0aec0;
+    }
+
+    #login-error {
+      color: #e53e3e;
+      font-size: 14px;
+      margin-top: 8px;
+      text-align: center;
+      padding: 12px;
+      background: rgba(229, 62, 62, 0.1);
+      border-radius: 8px;
+      border: 1px solid rgba(229, 62, 62, 0.2);
+    }
+
+    #main-ui {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+
+    .meeting-section {
+      padding: 20px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .section-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a5568;
+      margin-bottom: 8px;
+    }
+
+    #meeting-select {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 16px;
+      background: white;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    #meeting-select:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .chat-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #chat-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8fafc;
+      margin: 0 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #e2e8f0;
+      min-height: 200px;
+    }
+
+    .message {
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      max-width: 85%;
+      word-wrap: break-word;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .message.user {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      margin-left: auto;
+      border-bottom-right-radius: 4px;
+    }
+
+    .message.assistant {
+      background: white;
+      color: #2d3748;
+      border: 1px solid #e2e8f0;
+      border-bottom-left-radius: 4px;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .input-section {
+      padding: 20px;
+      background: white;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .input-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    #user-input {
+      flex: 1;
+      padding: 16px 20px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 16px;
+      transition: all 0.3s;
+      background: white;
+    }
+
+    #user-input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn-icon {
+      width: 52px;
+      height: 52px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    #send-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    #send-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+    }
+
+    #mic-btn {
+      background: #48bb78;
+      color: white;
+      box-shadow: 0 4px 15px rgba(72, 187, 120, 0.3);
+    }
+
+    #mic-btn:hover {
+      background: #38a169;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(72, 187, 120, 0.5);
+    }
+
+    #mic-btn.recording {
+      background: #e53e3e;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0); }
+    }
+
+    .speech-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 48px;
+      height: 24px;
+      background: #cbd5e0;
+      border-radius: 12px;
+      transition: all 0.3s;
+    }
+
+    .toggle-switch.active {
+      background: #667eea;
+    }
+
+    .toggle-handle {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: all 0.3s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-switch.active .toggle-handle {
+      transform: translateX(24px);
+    }
+
+    .toggle-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: #4a5568;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Scrollbar styling */
+    #chat-area::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    #chat-area::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    #chat-area::-webkit-scrollbar-thumb {
+      background: #cbd5e0;
+      border-radius: 3px;
+    }
+
+    #chat-area::-webkit-scrollbar-thumb:hover {
+      background: #a0aec0;
+    }
+
+    /* Loading animation */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .ui-toggle {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 50px;
+      height: 26px;
+      border-radius: 13px;
+      background: #cbd5e0;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      padding: 2px;
+    }
+    .ui-toggle.active {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .ui-toggle .toggle-handle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.3s ease;
+    }
+    .ui-toggle.active .toggle-handle {
+      transform: translateX(24px);
+    }
+    body.ui-inactive .header,
+    body.ui-inactive #auth-section,
+    body.ui-inactive #main-ui,
+    body.ui-inactive #user-info {
+      display: none !important;
+    }
+    .container {
+      transition: all 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="ui-toggle" class="ui-toggle inactive">
+      <div class="toggle-handle"></div>
+    </div>
+    <div id="plugin-toggle-message" style="display:none; text-align:left; margin-top:36px; font-size:14px; color:#ffffff; font-weight:700;">Activate Plugin</div>
+    <div class="header" style="margin-top:15px;">
+      <div class="logo">Meeting Assistant</div>
+      <div class="subtitle">Your AI-powered meeting companion</div>
+    </div>
+
+    <div id="user-info" style="display:none;">
+      <span id="user-name"></span>
+      <button id="logout-btn">Logout</button>
+    </div>
+
+    <div id="auth-section" class="auth-section">
+      <div class="auth-title">Welcome Back</div>
+      <div class="auth-subtitle">Sign in to access your meetings</div>
+      
+      <button id="google-signin-btn" class="btn-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="google-icon" alt="Google">
+        Sign in with Google
+      </button>
+      
+      <button id="sign-in-btn" class="btn-primary">Sign In with Email</button>
+    </div>
+
+    <div id="main-ui" class="hidden">
+      <div class="meeting-section">
+        <div class="section-label">Select Meeting</div>
+        <select id="meeting-select"></select>
+      </div>
+
+      <div class="chat-section">
+        <div id="chat-area"></div>
+      </div>
+
+      <div class="input-section">
+        <div class="input-controls">
+          <input type="text" id="user-input" placeholder="Type your message..." />
+          <button id="send-btn" class="btn-icon" title="Send message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+          <button id="mic-btn" class="btn-icon" title="Voice input">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="speech-toggle">
+          <div class="toggle-switch" id="speech-toggle">
+            <div class="toggle-handle"></div>
+          </div>
+          <div class="toggle-label">Enable Speech Replies</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

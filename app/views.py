@@ -65,11 +65,10 @@ def chatbot(request):
     return render(request, 'app/chatbot.html')
 
 
+@csrf_exempt
 def signout(request):
-    if request.method == "POST":
-        logout(request)
-        return JsonResponse({"success": True, "message": "Logged out"}, status=200)
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    logout(request)
+    return JsonResponse({'success': True})
 
 @csrf_exempt
 def checklogin(request):
@@ -412,6 +411,20 @@ def upload_folder(request):
         return JsonResponse({"success": True})
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)})
+
+@csrf_exempt  #added by sumon
+@login_required
+def userinfo(request):
+    user = request.user
+    # Use username if available, else fallback to email
+    name = user.username if user.username else user.email
+    email = user.email
+    # If you add a profile image field in the future, include it here
+    return JsonResponse({
+        'name': name,
+        'email': email,
+        # 'profile_image': user.profile_image.url if hasattr(user, 'profile_image') and user.profile_image else None
+    })
 
 
 
