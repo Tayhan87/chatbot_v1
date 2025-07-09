@@ -39,7 +39,6 @@ class MeetingManager {
         const data = await response.json();
         this.meetings = data.events;
         console.log(this.meetings);
-        console.log("Hello World");
         // await this.folderList();
         this.renderMeetings();
       } else {
@@ -185,11 +184,18 @@ class MeetingManager {
     document.getElementById("modalTitle").textContent = "Edit Meeting";
     document.getElementById("submitBtn").textContent = "Update Meeting";
     document.getElementById("meetingTitle").value = meeting.title;
-    document.getElementById("meetingDate").value = meeting.date && meeting.date.length > 10 ? meeting.date.slice(0,10) : meeting.date;
-    document.getElementById("meetingTime").value = meeting.time && meeting.time.length > 5 ? meeting.time.slice(0,5) : meeting.time;
+    document.getElementById("meetingDate").value =
+      meeting.date && meeting.date.length > 10
+        ? meeting.date.slice(0, 10)
+        : meeting.date;
+    document.getElementById("meetingTime").value =
+      meeting.time && meeting.time.length > 5
+        ? meeting.time.slice(0, 5)
+        : meeting.time;
     document.getElementById("meetingLink").value = meeting.link || "";
     document.getElementById("meetingFolder").value = meeting.folder || "";
-    document.getElementById("meetingDescription").value = meeting.description || "";
+    document.getElementById("meetingDescription").value =
+      meeting.description || "";
     document.getElementById("meetingDuration").value = meeting.duration || "";
     document.getElementById("meetingPlatform").value = meeting.platform || "";
     document.getElementById("meetingReminder").value = meeting.reminder || "";
@@ -214,7 +220,7 @@ class MeetingManager {
       "meetingFolder",
       "meetingDuration",
       "meetingPlatform",
-      "meetingReminder"
+      "meetingReminder",
     ];
     fields.forEach((id) => {
       const el = document.getElementById(id);
@@ -230,9 +236,9 @@ class MeetingManager {
     errorDiv.className = "text-red-500 mb-2";
     errorDiv.setAttribute("role", "alert");
     errorDiv.setAttribute("aria-live", "assertive");
-    errorDiv.innerHTML = errors.map(e => `<div>${e}</div>`).join("");
+    errorDiv.innerHTML = errors.map((e) => `<div>${e}</div>`).join("");
     form.prepend(errorDiv);
-    errors.forEach(err => {
+    errors.forEach((err) => {
       const match = err.match(/'(.*?)'/);
       if (match) {
         const el = document.getElementById(match[1]);
@@ -250,7 +256,9 @@ class MeetingManager {
     const time = document.getElementById("meetingTime").value;
     const link = document.getElementById("meetingLink").value.trim();
     const folder = document.getElementById("meetingFolder").value.trim();
-    const description = document.getElementById("meetingDescription").value.trim();
+    const description = document
+      .getElementById("meetingDescription")
+      .value.trim();
     const duration = document.getElementById("meetingDuration").value;
     const platform = document.getElementById("meetingPlatform").value;
     const reminder = document.getElementById("meetingReminder").value;
@@ -268,7 +276,7 @@ class MeetingManager {
     // End time must be after start time
     if (time && duration) {
       const [h, m] = time.split(":").map(Number);
-      const start = new Date(date + 'T' + time);
+      const start = new Date(date + "T" + time);
       const end = new Date(start.getTime() + parseInt(duration) * 60000);
       if (end <= start) {
         errors.push("End time must be after start time.");
@@ -282,9 +290,11 @@ class MeetingManager {
 
     // Date can't be in the past
     const today = new Date();
-    const selectedDate = new Date(date + 'T' + (time || '00:00'));
-    if (date && selectedDate < today.setHours(0,0,0,0)) {
-      errors.push("You cannot schedule a meeting in the past. Please select today or a future date.");
+    const selectedDate = new Date(date + "T" + (time || "00:00"));
+    if (date && selectedDate < today.setHours(0, 0, 0, 0)) {
+      errors.push(
+        "You cannot schedule a meeting in the past. Please select today or a future date."
+      );
     }
 
     if (errors.length > 0) {
@@ -301,7 +311,7 @@ class MeetingManager {
       description,
       duration,
       platform,
-      reminder
+      reminder,
     };
 
     const success = await this.saveMeeting(meetingData);
@@ -315,15 +325,15 @@ class MeetingManager {
 
   formatDate(dateStr) {
     // Accepts 'YYYY-MM-DD' or ISO string
-    if (!dateStr) return '';
+    if (!dateStr) return "";
     let dateObj;
     if (dateStr.length === 10) {
       // 'YYYY-MM-DD'
-      dateObj = new Date(dateStr + 'T00:00:00');
+      dateObj = new Date(dateStr + "T00:00:00");
     } else {
       dateObj = new Date(dateStr);
     }
-    if (isNaN(dateObj)) return 'Invalid Date';
+    if (isNaN(dateObj)) return "Invalid Date";
     return dateObj.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
@@ -333,14 +343,14 @@ class MeetingManager {
 
   formatTime(timeStr) {
     // Accepts 'HH:MM' or ISO string
-    if (!timeStr) return '';
+    if (!timeStr) return "";
     if (/^\d{2}:\d{2}$/.test(timeStr)) {
       // 'HH:MM' format
       return timeStr;
     }
     // Try to parse as ISO string
     const dateObj = new Date(timeStr);
-    if (isNaN(dateObj)) return 'Invalid Time';
+    if (isNaN(dateObj)) return "Invalid Time";
     return dateObj.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
@@ -384,26 +394,51 @@ class MeetingManager {
     const container = document.getElementById("meetingsList");
     if (!container) return;
     if (this.meetings.length === 0) {
-      container.innerHTML = '<div class="text-gray-300 text-center py-4">No meetings yet.</div>';
+      container.innerHTML =
+        '<div class="text-gray-300 text-center py-4">No meetings yet.</div>';
       return;
     }
-    container.innerHTML = this.meetings.map(meeting => `
+    container.innerHTML = this.meetings
+      .map(
+        (meeting) => `
       <div class="meeting-card rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
         <div class="flex-1">
           <h4 class="text-white font-medium text-lg mb-1">${meeting.title}</h4>
           <div class="text-gray-300 text-sm mb-1">
             ${this.formatDate(meeting.date)} at ${this.formatTime(meeting.time)}
-            ${meeting.duration ? `&bull; ${meeting.duration} min` : ''}
-            ${meeting.platform ? `&bull; ${meeting.platform}` : ''}
+            ${meeting.duration ? `&bull; ${meeting.duration} min` : ""}
+            ${meeting.platform ? `&bull; ${meeting.platform}` : ""}
           </div>
-          ${meeting.description ? `<div class="text-gray-400 text-sm mb-1">${meeting.description}</div>` : ''}
-          ${meeting.link ? `<a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-1 transition-colors"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>Join Meeting</a>` : ''}
-          ${meeting.folder ? (() => {
-            const folderObj = this.folders.find(f => f.id == meeting.folder);
-            const folderName = folderObj ? folderObj.name : 'Open Drive Folder';
-            return `<a href="https://drive.google.com/drive/folders/${meeting.folder}" target="_blank" style="position:relative;z-index:10;pointer-events:auto;" class="inline-flex items-center text-green-400 hover:text-green-300 text-sm mt-1 transition-colors" title="Open Drive Folder"><svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H14V6H19C20.1 6 21 6.9 21 8V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V8C3 6.9 3.9 6 5 6H10V4M5 8V19H19V8H5M12 10C13.1 10 14 10.9 14 12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12C10 10.9 10.9 10 12 10Z"/></svg>${folderName}</a>`;
-          })() : ''}
-          ${meeting.reminder && meeting.reminder !== 'none' ? `<div class="text-xs text-gray-400 mt-1">Reminder: ${this.getReminderText(meeting.reminder)}</div>` : ''}
+          ${
+            meeting.description
+              ? `<div class="text-gray-400 text-sm mb-1">${meeting.description}</div>`
+              : ""
+          }
+          ${
+            meeting.link
+              ? `<a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-1 transition-colors"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>Join Meeting</a>`
+              : ""
+          }
+          ${
+            meeting.folder
+              ? (() => {
+                  const folderObj = this.folders.find(
+                    (f) => f.id == meeting.folder
+                  );
+                  const folderName = folderObj
+                    ? folderObj.name
+                    : "Open Drive Folder";
+                  return `<a href="https://drive.google.com/drive/folders/${meeting.folder}" target="_blank" style="position:relative;z-index:10;pointer-events:auto;" class="inline-flex items-center text-green-400 hover:text-green-300 text-sm mt-1 transition-colors" title="Open Drive Folder"><svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10 4H14V6H19C20.1 6 21 6.9 21 8V19C21 20.1 20.1 21 19 21H5C3.9 21 3 20.1 3 19V8C3 6.9 3.9 6 5 6H10V4M5 8V19H19V8H5M12 10C13.1 10 14 10.9 14 12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12C10 10.9 10.9 10 12 10Z"/></svg>${folderName}</a>`;
+                })()
+              : ""
+          }
+          ${
+            meeting.reminder && meeting.reminder !== "none"
+              ? `<div class="text-xs text-gray-400 mt-1">Reminder: ${this.getReminderText(
+                  meeting.reminder
+                )}</div>`
+              : ""
+          }
         </div>
         <div class="flex space-x-2 mt-4 md:mt-0 md:ml-4">
           <button onclick="meetingManager.openEditModal('${meeting.id}')"
@@ -422,16 +457,23 @@ class MeetingManager {
           </button>
         </div>
       </div>
-    `).join('');
+    `
+      )
+      .join("");
   }
 
   getReminderText(reminder) {
-    switch(reminder) {
-      case '5': return '5 minutes before';
-      case '10': return '10 minutes before';
-      case '30': return '30 minutes before';
-      case '60': return '1 hour before';
-      default: return 'No reminder';
+    switch (reminder) {
+      case "5":
+        return "5 minutes before";
+      case "10":
+        return "10 minutes before";
+      case "30":
+        return "30 minutes before";
+      case "60":
+        return "1 hour before";
+      default:
+        return "No reminder";
     }
   }
 }
