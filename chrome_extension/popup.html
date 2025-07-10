@@ -517,13 +517,14 @@
     </div>
 
     <div id="main-ui" class="hidden">
-      <div class="meeting-section">
-        <div class="section-label">Select Meeting</div>
-        <select id="meeting-select"></select>
+      <div class="meeting-section" style="display: flex; align-items: center; gap: 8px;">
+        <div class="section-label" style="margin-bottom: 0;">Select Meeting</div>
+        <select id="meeting-select" style="flex:1; margin-right: 4px;"></select>
+        <button id="summarize-meeting-btn" title="Summarize Meeting" style="font-size:13px; padding:2px 10px; border-radius:8px; background:#3b82f6; color:white; border:none; cursor:pointer; display:flex; align-items:center; height:28px; min-width:0; white-space:nowrap;">💡 Summarize</button>
       </div>
 
       <div class="chat-section">
-        <div id="chat-area"></div>
+        <div id="chat-area" style="height:180px; max-height:180px; overflow-y:auto; margin-bottom:0;"></div>
       </div>
 
       <div class="input-section">
@@ -541,11 +542,17 @@
           </button>
         </div>
 
-        <div class="speech-toggle">
+        <div class="speech-toggle" style="align-items: center;">
           <div class="toggle-switch" id="speech-toggle">
             <div class="toggle-handle"></div>
           </div>
           <div class="toggle-label">Enable Speech Replies</div>
+          <button id="stop-voice-btn" title="Stop Voice Reply" style="margin-left:8px; font-size:14px; padding:2px 8px; border-radius:8px; background:#eee; border:none; cursor:pointer; display:flex; align-items:center; height:28px;">
+            <span style="font-size:16px; margin-right:4px;">🔇</span>Stop Voice
+          </button>
+          <button id="reset-chat-btn" title="Reset Chat" style="margin-left:8px; font-size:14px; padding:2px 8px; border-radius:8px; background:#f87171; color:white; border:none; cursor:pointer; display:flex; align-items:center; height:28px;">
+            <span style="font-size:16px; margin-right:4px;">♻️</span>Reset Chat
+          </button>
         </div>
       </div>
     </div>

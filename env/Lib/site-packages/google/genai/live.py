@@ -196,7 +196,7 @@ class AsyncSession:
     if os.environ.get('GOOGLE_GENAI_USE_VERTEXAI'):
       MODEL_NAME = 'gemini-2.0-flash-live-preview-04-09'
     else:
-      MODEL_NAME = 'gemini-2.0-flash-live-001';
+      MODEL_NAME = 'gemini-live-2.5-flash-preview';
 
     client = genai.Client()
     async with client.aio.live.connect(
@@ -267,7 +267,7 @@ class AsyncSession:
     if os.environ.get('GOOGLE_GENAI_USE_VERTEXAI'):
       MODEL_NAME = 'gemini-2.0-flash-live-preview-04-09'
     else:
-      MODEL_NAME = 'gemini-2.0-flash-live-001';
+      MODEL_NAME = 'gemini-live-2.5-flash-preview';
 
 
     client = genai.Client()
@@ -361,7 +361,7 @@ class AsyncSession:
     if os.environ.get('GOOGLE_GENAI_USE_VERTEXAI'):
       MODEL_NAME = 'gemini-2.0-flash-live-preview-04-09'
     else:
-      MODEL_NAME = 'gemini-2.0-flash-live-001';
+      MODEL_NAME = 'gemini-live-2.5-flash-preview';
 
     client = genai.Client()
 
@@ -372,7 +372,7 @@ class AsyncSession:
     }
 
     async with client.aio.live.connect(
-        model='models/gemini-2.0-flash-live-001',
+        model='models/gemini-live-2.5-flash-preview',
         config=config
     ) as session:
       prompt = "Turn on the lights please"
@@ -940,7 +940,16 @@ class AsyncLive(_api_module.BaseModule):
         )
         method = 'BidiGenerateContentConstrained'
         key_name = 'access_token'
-
+        if version != 'v1alpha':
+          warnings.warn(
+              message=(
+                  "The SDK's ephemeral token support is in v1alpha only."
+                  'Please use client = genai.Client(api_key=token.name, '
+                  'http_options=types.HttpOptions(api_version="v1alpha"))'
+                  ' before session connection.'
+              ),
+              category=errors.ExperimentalWarning,
+          )
       uri = f'{base_url}/ws/google.ai.generativelanguage.{version}.GenerativeService.{method}?{key_name}={api_key}'
       headers = self._api_client._http_options.headers
 

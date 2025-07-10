@@ -38,6 +38,21 @@ const logoutBtn = document.getElementById("logout-btn");
 const uiToggle = document.getElementById("ui-toggle");
 const activateMessage = document.getElementById("activate-message");
 const pluginToggleMessage = document.getElementById("plugin-toggle-message");
+const stopVoiceBtn = document.getElementById('stop-voice-btn');
+if (stopVoiceBtn) {
+  stopVoiceBtn.addEventListener('click', () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  });
+}
+
+const resetChatBtn = document.getElementById('reset-chat-btn');
+if (resetChatBtn) {
+  resetChatBtn.addEventListener('click', () => {
+    chatArea.innerHTML = '<div class="message system" style="background:#e2e8f0;color:#4a5568;text-align:center;font-style:italic;margin:8px auto;max-width:90%;">Welcome to the AI Chat Assistant!</div>';
+  });
+}
 
 // --- State ---
 let meetings = [];
@@ -264,8 +279,9 @@ function appendMessage(sender, text) {
   messageDiv.textContent =
     sender === "system"
       ? text
-      : `${sender === "You" ? "You: " : "Assistant: "}${text}`;
+      : `${sender === "You" ? "" : "Assistant: "}${text}`;
   chatArea.appendChild(messageDiv);
+  // Automatic scroll to bottom
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
@@ -468,3 +484,48 @@ async function init() {
 }
 
 document.addEventListener("DOMContentLoaded", init);
+
+async function summarizeSelectedMeeting() {
+  const meetingId = meetingSelect.value;
+  if (!meetingId) {
+    appendMessage('system', 'Please select a meeting to summarize.');
+    return;
+  }
+  // Fetch all meetings and find the selected one
+  try {
+    const response = await fetch('http://127.0.0.1:8000/showmeeting/');
+    const data = await response.json();
+    const meeting = (data.events || []).find(m => m.id == meetingId);
+    if (!meeting) {
+      appendMessage('system', 'Meeting not found.');
+      return;
+    }
+    // Show meeting details in chat
+    const details = `Meeting Details:\n- Title: ${meeting.title}\n- Date: ${meeting.date}\n- Time: ${meeting.time}\n- Description: ${meeting.description || ''}\n- Link: ${meeting.link || ''}\n- Folder: ${meeting.folder || ''}`;
+    appendMessage('system', details);
+    const summaryPrompt = `Summarize the following meeting in a professional, point-by-point format.\n\n${details}\n\nPlease provide the summary as a numbered or bulleted list of key points.`;
+    appendMessage('You', 'Summarize the selected meeting.');
+    // Show typing indicator
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message assistant';
+    typingDiv.innerHTML = 'Assistant is typing... <div class="loading"></div>';
+    chatArea.appendChild(typingDiv);
+    chatArea.scrollTop = chatArea.scrollHeight;
+    // Simulate assistant reply with delay and call AI API
+    try {
+      const aiResponse = await fetch('http://127.0.0.1:8000/chat_api/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: summaryPrompt })
+      });
+      const aiData = await aiResponse.json();
+      chatArea.removeChild(typingDiv);
+      appendMessage('Assistant', aiData.response || aiData.message || 'No summary received.');
+    } catch (err) {
+      chatArea.removeChild(typingDiv);
+      appendMessage('system', 'Sorry, I could not summarize the meeting.');
+    }
+  } catch (err) {
+    appendMessage('system', 'Failed to fetch meetings.');
+  }
+}

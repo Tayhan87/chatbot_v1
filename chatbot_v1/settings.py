@@ -15,7 +15,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-SITE_ID = 1
+SITE_ID = 2
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -147,10 +147,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-GEMINI_API_KEY = os.getenv('AIzaSyDYrY-2iOMeLPD6oTTupY4WJeffZQXc1f8')
-
-GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -181,7 +177,7 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install -q -U google-genai
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
-
+GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
 
 CORS_ALLOWED_ORIGINS = [ #added by sumon
     "chrome-extension://jdlinkojhobddhgoheiocikiblabdibn",
@@ -192,20 +188,6 @@ SESSION_COOKIE_SAMESITE = 'None'#added by sumon
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
-    },
-}
 
 
 

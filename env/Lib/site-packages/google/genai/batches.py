@@ -515,6 +515,9 @@ def _Tool_to_mldev(
   if getv(from_object, ['code_execution']) is not None:
     setv(to_object, ['codeExecution'], getv(from_object, ['code_execution']))
 
+  if getv(from_object, ['computer_use']) is not None:
+    setv(to_object, ['computerUse'], getv(from_object, ['computer_use']))
+
   return to_object
 
 
@@ -1288,6 +1291,25 @@ def _ListBatchJobsParameters_to_mldev(
   return to_object
 
 
+def _DeleteBatchJobParameters_to_mldev(
+    api_client: BaseApiClient,
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+  to_object: dict[str, Any] = {}
+  if getv(from_object, ['name']) is not None:
+    setv(
+        to_object,
+        ['_url', 'name'],
+        t.t_batch_job_name(api_client, getv(from_object, ['name'])),
+    )
+
+  if getv(from_object, ['config']) is not None:
+    setv(to_object, ['config'], getv(from_object, ['config']))
+
+  return to_object
+
+
 def _VideoMetadata_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -1795,6 +1817,9 @@ def _Tool_to_vertex(
 
   if getv(from_object, ['code_execution']) is not None:
     setv(to_object, ['codeExecution'], getv(from_object, ['code_execution']))
+
+  if getv(from_object, ['computer_use']) is not None:
+    setv(to_object, ['computerUse'], getv(from_object, ['computer_use']))
 
   return to_object
 
@@ -3036,6 +3061,9 @@ def _Tool_from_mldev(
   if getv(from_object, ['codeExecution']) is not None:
     setv(to_object, ['code_execution'], getv(from_object, ['codeExecution']))
 
+  if getv(from_object, ['computerUse']) is not None:
+    setv(to_object, ['computer_use'], getv(from_object, ['computerUse']))
+
   return to_object
 
 
@@ -3697,6 +3725,27 @@ def _ListBatchJobsResponse_from_mldev(
   return to_object
 
 
+def _DeleteResourceJob_from_mldev(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+  to_object: dict[str, Any] = {}
+  if getv(from_object, ['name']) is not None:
+    setv(to_object, ['name'], getv(from_object, ['name']))
+
+  if getv(from_object, ['done']) is not None:
+    setv(to_object, ['done'], getv(from_object, ['done']))
+
+  if getv(from_object, ['error']) is not None:
+    setv(
+        to_object,
+        ['error'],
+        _JobError_from_mldev(getv(from_object, ['error']), to_object),
+    )
+
+  return to_object
+
+
 def _JobError_from_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -4219,6 +4268,9 @@ def _Tool_from_vertex(
 
   if getv(from_object, ['codeExecution']) is not None:
     setv(to_object, ['code_execution'], getv(from_object, ['codeExecution']))
+
+  if getv(from_object, ['computerUse']) is not None:
+    setv(to_object, ['computer_use'], getv(from_object, ['computerUse']))
 
   return to_object
 
@@ -4937,7 +4989,7 @@ class Batches(_api_module.BaseModule):
       name (str): A fully-qualified BatchJob resource name or ID.
         Example: "projects/.../locations/.../batchPredictionJobs/456" or "456"
           when project and location are initialized in the Vertex AI client. Or
-          "files/abc" using the Gemini Developer AI client.
+          "batches/abc" using the Gemini Developer AI client.
 
     Returns:
       A BatchJob object that contains details about the batch job.
@@ -5022,7 +5074,7 @@ class Batches(_api_module.BaseModule):
       name (str): A fully-qualified BatchJob resource name or ID.
         Example: "projects/.../locations/.../batchPredictionJobs/456" or "456"
           when project and location are initialized in the Vertex AI client. Or
-          "files/abc" using the Gemini Developer AI client.
+          "batches/abc" using the Gemini Developer AI client.
 
     Usage:
 
@@ -5161,9 +5213,8 @@ class Batches(_api_module.BaseModule):
     )
 
     request_url_dict: Optional[dict[str, str]]
-    if not self._api_client.vertexai:
-      raise ValueError('This method is only supported in the Vertex AI client.')
-    else:
+
+    if self._api_client.vertexai:
       request_dict = _DeleteBatchJobParameters_to_vertex(
           self._api_client, parameter_model
       )
@@ -5172,7 +5223,15 @@ class Batches(_api_module.BaseModule):
         path = 'batchPredictionJobs/{name}'.format_map(request_url_dict)
       else:
         path = 'batchPredictionJobs/{name}'
-
+    else:
+      request_dict = _DeleteBatchJobParameters_to_mldev(
+          self._api_client, parameter_model
+      )
+      request_url_dict = request_dict.get('_url')
+      if request_url_dict:
+        path = 'batches/{name}'.format_map(request_url_dict)
+      else:
+        path = 'batches/{name}'
     query_params = request_dict.get('_query')
     if query_params:
       path = f'{path}?{urlencode(query_params)}'
@@ -5197,6 +5256,9 @@ class Batches(_api_module.BaseModule):
 
     if self._api_client.vertexai:
       response_dict = _DeleteResourceJob_from_vertex(response_dict)
+
+    else:
+      response_dict = _DeleteResourceJob_from_mldev(response_dict)
 
     return_value = types.DeleteResourceJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()
@@ -5354,7 +5416,7 @@ class AsyncBatches(_api_module.BaseModule):
       name (str): A fully-qualified BatchJob resource name or ID.
         Example: "projects/.../locations/.../batchPredictionJobs/456" or "456"
           when project and location are initialized in the Vertex AI client. Or
-          "files/abc" using the Gemini Developer AI client.
+          "batches/abc" using the Gemini Developer AI client.
 
     Returns:
       A BatchJob object that contains details about the batch job.
@@ -5441,7 +5503,7 @@ class AsyncBatches(_api_module.BaseModule):
       name (str): A fully-qualified BatchJob resource name or ID.
         Example: "projects/.../locations/.../batchPredictionJobs/456" or "456"
           when project and location are initialized in the Vertex AI client. Or
-          "files/abc" using the Gemini Developer AI client.
+          "batches/abc" using the Gemini Developer AI client.
 
     Usage:
 
@@ -5582,9 +5644,8 @@ class AsyncBatches(_api_module.BaseModule):
     )
 
     request_url_dict: Optional[dict[str, str]]
-    if not self._api_client.vertexai:
-      raise ValueError('This method is only supported in the Vertex AI client.')
-    else:
+
+    if self._api_client.vertexai:
       request_dict = _DeleteBatchJobParameters_to_vertex(
           self._api_client, parameter_model
       )
@@ -5593,7 +5654,15 @@ class AsyncBatches(_api_module.BaseModule):
         path = 'batchPredictionJobs/{name}'.format_map(request_url_dict)
       else:
         path = 'batchPredictionJobs/{name}'
-
+    else:
+      request_dict = _DeleteBatchJobParameters_to_mldev(
+          self._api_client, parameter_model
+      )
+      request_url_dict = request_dict.get('_url')
+      if request_url_dict:
+        path = 'batches/{name}'.format_map(request_url_dict)
+      else:
+        path = 'batches/{name}'
     query_params = request_dict.get('_query')
     if query_params:
       path = f'{path}?{urlencode(query_params)}'
@@ -5618,6 +5687,9 @@ class AsyncBatches(_api_module.BaseModule):
 
     if self._api_client.vertexai:
       response_dict = _DeleteResourceJob_from_vertex(response_dict)
+
+    else:
+      response_dict = _DeleteResourceJob_from_mldev(response_dict)
 
     return_value = types.DeleteResourceJob._from_response(
         response=response_dict, kwargs=parameter_model.model_dump()

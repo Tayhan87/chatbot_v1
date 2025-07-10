@@ -70,9 +70,24 @@
         <!-- Chat Area (hidden by default, shown when AI Chat Assistant is clicked) -->
         <section id="chatSection" class="hidden mt-8">
           <div class="bg-gray-900 bg-opacity-80 rounded-xl p-6 shadow-md w-full max-w-2xl mx-auto flex flex-col" style="height: 600px; min-height: 400px; max-height: 80vh;">
-            <h3 class="text-xl font-semibold text-white mb-4 flex items-center justify-between">AI Chat
-              <button id="refreshChatbotBtn" title="Refresh" onclick="location.reload()" class="ml-2 p-2 rounded-full bg-gray-700 hover:bg-blue-500 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg></button>
-            </h3>
+            <h3 class="text-xl font-semibold text-white mb-4 flex items-center">AI Chat</h3>
+            <!-- Meeting Selection for Chatbot -->
+            <div class="flex items-center mb-2">
+              <label for="chatMeetingSelect" class="text-white mr-2">Select Meeting</label>
+              <select id="chatMeetingSelect" class="form-select px-2 py-1 rounded bg-gray-800 text-white border border-gray-600 focus:outline-none focus:border-blue-400"></select>
+              <button id="summarizeMeetingBtn" class="ml-2 bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-1 rounded">Summarize Meeting</button>
+            </div>
+            <!-- Speech Replies Toggle -->
+            <div class="flex items-center mb-2">
+              <label for="speechRepliesToggle" class="text-white mr-2">Speech Replies</label>
+              <input type="checkbox" id="speechRepliesToggle" class="form-checkbox h-5 w-5 text-blue-600" />
+              <button id="stopVoiceBtn" title="Stop Voice Reply" style="margin-left:8px; font-size:14px; padding:2px 8px; border-radius:8px; background:#eee; border:none; cursor:pointer; display:flex; align-items:center; height:28px;">
+                <span style="font-size:16px; margin-right:4px;">🔇</span>Stop Voice
+              </button>
+              <button id="resetChatBtn" title="Reset Chat" style="margin-left:8px; font-size:14px; padding:2px 8px; border-radius:8px; background:#f87171; color:white; border:none; cursor:pointer; display:flex; align-items:center; height:28px;">
+                <span style="font-size:16px; margin-right:4px;">♻️</span>Reset Chat
+              </button>
+            </div>
             <div class="flex-1 flex flex-col overflow-y-auto mb-4" id="chatMessages" style="min-height:0;">
               <div class="space-y-4">
                 <div class="text-gray-400">Welcome to the AI Chat Assistant!</div>

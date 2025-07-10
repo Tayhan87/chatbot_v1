@@ -3,8 +3,14 @@ class ChatInterface {
     this.messageInput = document.getElementById("messageInput");
     this.chatMessages = document.getElementById("chatMessages");
     this.chatForm = document.getElementById("chatForm");
+    this.speechRepliesToggle = document.getElementById("speechRepliesToggle");
+    this.chatMeetingSelect = document.getElementById("chatMeetingSelect");
+    this.summarizeMeetingBtn = document.getElementById("summarizeMeetingBtn");
+    this.selectedMeeting = null;
+    this.meetings = [];
     this.isRecording = false;
     this.recognition = null;
+    this.speechRepliesEnabled = false;
     this.init();
   }
 
@@ -26,6 +32,41 @@ class ChatInterface {
         this.messageInput.style.height = "auto";
         this.messageInput.style.height =
           Math.min(this.messageInput.scrollHeight, 120) + "px";
+      });
+    }
+    if (this.speechRepliesToggle) {
+      this.speechRepliesToggle.addEventListener("change", (e) => {
+        this.speechRepliesEnabled = e.target.checked;
+      });
+      // Default: speech replies off
+      this.speechRepliesToggle.checked = false;
+      this.speechRepliesEnabled = false;
+    }
+    if (this.chatMeetingSelect) {
+      this.fetchMeetings();
+      this.chatMeetingSelect.addEventListener("change", (e) => {
+        const meetingId = e.target.value;
+        this.selectedMeeting = this.meetings.find(m => m.id == meetingId) || null;
+      });
+    }
+    if (this.summarizeMeetingBtn) {
+      this.summarizeMeetingBtn.addEventListener("click", () => this.summarizeSelectedMeeting());
+    }
+    this.stopVoiceBtn = document.getElementById("stopVoiceBtn");
+    if (this.stopVoiceBtn) {
+      this.stopVoiceBtn.addEventListener("click", () => {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      });
+    }
+    this.resetChatBtn = document.getElementById("resetChatBtn");
+    if (this.resetChatBtn) {
+      this.resetChatBtn.addEventListener("click", () => {
+        // Clear chat messages and show welcome message
+        let messagesContainer = this.chatMessages.querySelector(".space-y-4");
+        if (!messagesContainer) messagesContainer = this.chatMessages;
+        messagesContainer.innerHTML = '<div class="text-gray-400">Welcome to the AI Chat Assistant!</div>';
       });
     }
   }
@@ -249,6 +290,12 @@ class ChatInterface {
         }
       }
       typeLetter();
+      // Text-to-Speech if enabled
+      if (this.speechRepliesEnabled && 'speechSynthesis' in window) {
+        const utter = new window.SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ''));
+        utter.lang = 'en-US';
+        window.speechSynthesis.speak(utter);
+      }
     }
   }
 
@@ -262,6 +309,50 @@ class ChatInterface {
     setTimeout(() => {
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }, 100);
+  }
+
+  async fetchMeetings() {
+    try {
+      const response = await fetch("/showmeeting/");
+      const data = await response.json();
+      this.meetings = data.events || [];
+      this.populateMeetingDropdown();
+    } catch (e) {
+      if (this.chatMeetingSelect) {
+        this.chatMeetingSelect.innerHTML = '<option value="">Failed to load meetings</option>';
+      }
+    }
+  }
+
+  populateMeetingDropdown() {
+    if (!this.chatMeetingSelect) return;
+    this.chatMeetingSelect.innerHTML = '<option value="">Select a meeting...</option>';
+    this.meetings.forEach(m => {
+      const option = document.createElement('option');
+      option.value = m.id;
+      option.textContent = `${m.title} (${m.date} ${m.time})`;
+      this.chatMeetingSelect.appendChild(option);
+    });
+  }
+
+  async summarizeSelectedMeeting() {
+    if (!this.selectedMeeting) {
+      this.addMessage("Please select a meeting to summarize.", "error");
+      return;
+    }
+    const meeting = this.selectedMeeting;
+    const summaryPrompt = `Summarize the following meeting in a professional, point-by-point format.\n\nMeeting Details:\nTitle: ${meeting.title}\nDate: ${meeting.date}\nTime: ${meeting.time}\nDescription: ${meeting.description || ''}\nLink: ${meeting.link || ''}\nFolder: ${meeting.folder || ''}\n\nPlease provide the summary as a numbered or bulleted list of key points.`;
+    this.addMessage("Summarize the selected meeting.", "user");
+    // Show typing bubble for AI
+    const typingBubble = this.addMessage('', 'bot-typing');
+    try {
+      const response = await this.callAPI(summaryPrompt);
+      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
+      this.addMessage(response, "bot");
+    } catch (error) {
+      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
+      this.addMessage("Sorry, I couldn't summarize the meeting. Please try again.", "error");
+    }
   }
 }
 
