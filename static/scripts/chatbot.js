@@ -12,6 +12,17 @@ class ChatInterface {
     this.recognition = null;
     this.speechRepliesEnabled = false;
     this.init();
+    // Voice input button
+    this.voiceInputBtn = document.getElementById("voiceInputBtn");
+    this.micRecording = false;
+    if (this.voiceInputBtn) {
+      this.voiceInputBtn.addEventListener("click", () => this.toggleVoiceInput());
+    }
+    // Prepare icons for visual feedback (optional, can be improved)
+    if (this.voiceInputBtn) {
+      this.voiceInputBtn._defaultBg = this.voiceInputBtn.style.backgroundColor;
+    }
+    this.initSpeechRecognition && this.initSpeechRecognition();
   }
 
   init() {
@@ -84,20 +95,63 @@ class ChatInterface {
 
       this.recognition.onstart = () => {
         this.isRecording = true;
-        this.voiceButton.classList.add("voice-recording", "voice-listening");
-        this.micIcon.classList.add("hidden");
-        this.stopIcon.classList.remove("hidden");
+        if (this.voiceInputBtn) {
+          this.voiceInputBtn.classList.add("bg-red-500");
+          this.voiceInputBtn.classList.remove("bg-blue-500", "hover:bg-blue-600");
+        }
       };
 
       this.recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
+        const transcript = event.results[0][0].transcript.trim();
         this.messageInput.value = transcript;
         this.messageInput.focus();
         // Auto-resize textarea after voice input
         this.messageInput.style.height = "auto";
         this.messageInput.style.height =
           Math.min(this.messageInput.scrollHeight, 120) + "px";
+
+        // Meeting voice command logic
+        const lower = transcript.toLowerCase();
+        if (lower.includes('show meetings') || lower.includes('list meetings')) {
+          // Show meetings list in chat
+          if (Array.isArray(this.meetings) && this.meetings.length > 0) {
+            let msg = 'Here are your meetings:';
+            this.meetings.forEach((m, idx) => {
+              msg += `\n${idx + 1}. ${m.title} (${m.date} ${m.time})`;
+            });
+            this.addMessage(msg, 'bot');
+          } else {
+            this.addMessage('No meetings found.', 'bot');
+          }
+          return;
+        }
+        // Try to match a meeting title from voice
+        const foundMeeting = (this.meetings || []).find(m => lower.includes(m.title.toLowerCase()));
+        if (foundMeeting) {
+          let detailsHtml = `<b>Meeting Details:</b><br>`;
+          detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
+          detailsHtml += `<b>Date:</b> ${foundMeeting.date}<br>`;
+          detailsHtml += `<b>Time:</b> ${foundMeeting.time}<br>`;
+          if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
+          if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
+          if (foundMeeting.folder) {
+            let folderUrl = foundMeeting.folder;
+            if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
+              folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
+            }
+            detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
+          }
+          this.addMessage(detailsHtml, "bot", true);
+          // Optionally, set as selectedMeeting for management
+          this.selectedMeeting = foundMeeting;
+          // You can add more management actions here (e.g., edit, delete, etc.)
+          return;
+        }
+        // Otherwise, send as normal chat
+        this.sendMessage();
       };
+
+
 
       this.recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
@@ -113,6 +167,10 @@ class ChatInterface {
 
       this.recognition.onend = () => {
         this.stopVoiceRecording();
+        if (this.voiceInputBtn) {
+          this.voiceInputBtn.classList.remove("bg-red-500");
+          this.voiceInputBtn.classList.add("bg-blue-500", "hover:bg-blue-600");
+        }
       };
     } else {
       // Hide voice button if not supported
@@ -126,29 +184,62 @@ class ChatInterface {
       alert("Speech recognition is not supported in your browser.");
       return;
     }
-
     if (this.isRecording) {
       this.recognition.stop();
     } else {
       try {
+        // Visual feedback: change button color
+        if (this.voiceInputBtn) {
+          this.voiceInputBtn.classList.add("bg-red-500");
+          this.voiceInputBtn.classList.remove("bg-blue-500", "hover:bg-blue-600");
+        }
         this.recognition.start();
       } catch (error) {
         console.error("Error starting speech recognition:", error);
-        alert("Could not start voice recognition. Please try again.");
+        alert("Could not start speech recognition. Please try again.");
       }
     }
   }
 
   stopVoiceRecording() {
     this.isRecording = false;
-    this.voiceButton.classList.remove("voice-recording", "voice-listening");
-    this.micIcon.classList.remove("hidden");
-    this.stopIcon.classList.add("hidden");
+    if (this.voiceInputBtn) {
+      this.voiceInputBtn.classList.remove("bg-red-500");
+      this.voiceInputBtn.classList.add("bg-blue-500", "hover:bg-blue-600");
+    }
   }
 
   async sendMessage() {
     const message = this.messageInput.value.trim();
     if (!message) return;
+
+    // If message matches a meeting title (partial, case-insensitive)
+    if (this.meetings && this.meetings.length > 0) {
+      const lowerMsg = message.toLowerCase();
+      const foundMeeting = this.meetings.find(m => lowerMsg.includes(m.title.toLowerCase()));
+      if (foundMeeting) {
+        let detailsHtml = `<b>Meeting Details:</b><br>`;
+        detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
+        detailsHtml += `<b>Date:</b> ${foundMeeting.date}<br>`;
+        detailsHtml += `<b>Time:</b> ${foundMeeting.time}<br>`;
+        if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
+        if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
+        if (foundMeeting.folder) {
+          let folderUrl = foundMeeting.folder;
+          if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
+            folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
+          }
+          detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
+        }
+        this.addMessage(message, "user");
+        this.addMessage(detailsHtml, "bot", true);
+        this.selectedMeeting = foundMeeting;
+        this.messageInput.value = "";
+        this.messageInput.style.height = "auto";
+        return;
+      }
+    }
+
     this.addMessage(message, "user");
     this.messageInput.value = "";
     this.messageInput.style.height = "auto";

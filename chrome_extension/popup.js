@@ -264,8 +264,37 @@ meetingSelect.addEventListener("change", () => {
   }
 });
 
+// Summarize button logic
+const summarizeBtn = document.getElementById('summarize-meeting-btn');
+if (summarizeBtn) {
+  summarizeBtn.addEventListener('click', async () => {
+    if (!selectedMeeting) {
+      appendMessage('system', 'Please select a meeting to summarize.');
+      return;
+    }
+    // Show meeting details in chat (from selectedMeeting) with formatting
+    let detailsHtml = `<b>Meeting Details:</b><br>`;
+    detailsHtml += `<b>Title:</b> ${selectedMeeting.title}<br>`;
+    detailsHtml += `<b>Date:</b> ${selectedMeeting.date}<br>`;
+    detailsHtml += `<b>Time:</b> ${selectedMeeting.time}<br>`;
+    if (selectedMeeting.description) detailsHtml += `<b>Description:</b> ${selectedMeeting.description}<br>`;
+    if (selectedMeeting.link) detailsHtml += `<b>Link:</b> <a href="${selectedMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${selectedMeeting.link}</a><br>`;
+    if (selectedMeeting.folder) {
+      let folderUrl = selectedMeeting.folder;
+      // If it's not a full Google Drive URL, treat as ID
+      if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
+        folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
+      }
+      detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
+    }
+    appendMessage('system', detailsHtml, true);
+    // Continue with summary logic if needed (call AI, etc)
+  });
+}
+
+
 // --- Chat Logic ---
-function appendMessage(sender, text) {
+function appendMessage(sender, text, isHtml = false) {
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${
     sender === "You" ? "user" : sender === "system" ? "system" : "assistant"
@@ -276,22 +305,71 @@ function appendMessage(sender, text) {
       "background: #e2e8f0; color: #4a5568; text-align: center; font-style: italic; margin: 8px auto; max-width: 90%;";
   }
 
-  messageDiv.textContent =
-    sender === "system"
-      ? text
-      : `${sender === "You" ? "" : "Assistant: "}${text}`;
+  if (isHtml) {
+    messageDiv.innerHTML = text;
+  } else {
+    messageDiv.textContent =
+      sender === "system"
+        ? text
+        : `${sender === "You" ? "" : "Assistant: "}${text}`;
+  }
   chatArea.appendChild(messageDiv);
   // Automatic scroll to bottom
   chatArea.scrollTop = chatArea.scrollHeight;
+
+  // Speech replies for all assistant/system messages if enabled
+  if (speechReplies && (sender === "Assistant" || sender === "system")) {
+    // Remove HTML tags for speech synthesis
+    const plainText = text.replace(/<[^>]+>/g, '');
+    speak(plainText);
+  }
 }
+
 
 async function handleSend() {
   const message = userInput.value.trim();
   if (!message) return;
 
-  if (!selectedMeeting) {
-    appendMessage("system", "Please select a meeting first.");
-    return;
+  // Check if message matches a meeting title (partial/case-insensitive)
+  if (meetings && meetings.length > 0) {
+    const lowerMsg = message.toLowerCase();
+    const foundMeeting = meetings.find(m => lowerMsg.includes(m.title.toLowerCase()));
+    if (foundMeeting) {
+      appendMessage("You", message);
+      // Show details part by part
+      let detailsHtml = `<b>Meeting Details:</b><br>`;
+      detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
+      detailsHtml += `<b>Date:</b> ${foundMeeting.date}<br>`;
+      detailsHtml += `<b>Time:</b> ${foundMeeting.time}<br>`;
+      if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
+      if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
+      if (foundMeeting.folder) {
+        let folderUrl = foundMeeting.folder;
+        // If it's not a full Google Drive URL, treat as ID
+        if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
+          folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
+        }
+        detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
+      }
+      appendMessage("system", detailsHtml, true);
+      userInput.value = "";
+      // If user asked for summary
+      if (lowerMsg.includes('summarize') || lowerMsg.includes('summary')) {
+        const details = `Meeting Details:\n- Title: ${foundMeeting.title}\n- Date: ${foundMeeting.date}\n- Time: ${foundMeeting.time}\n- Description: ${foundMeeting.description || ''}\n- Link: ${foundMeeting.link || ''}\n- Folder: ${foundMeeting.folder || ''}`;
+        const summaryPrompt = `Summarize the following meeting in a professional, point-by-point format.\n\n${details}\n\nPlease provide the summary as a numbered or bulleted list of key points.`;
+        const typingDiv = document.createElement("div");
+        typingDiv.className = "message assistant";
+        typingDiv.innerHTML = 'Assistant is typing... <div class="loading"></div>';
+        chatArea.appendChild(typingDiv);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        callAPI(summaryPrompt).then(reply => {
+          chatArea.removeChild(typingDiv);
+          appendMessage("Assistant", reply);
+          if (speechReplies) speak(reply);
+        });
+      }
+      return;
+    }
   }
 
   appendMessage("You", message);
@@ -314,6 +392,7 @@ async function handleSend() {
     speak(reply);
   }
 }
+
 
 sendBtn.addEventListener("click", handleSend);
 userInput.addEventListener("keydown", (e) => {
@@ -344,12 +423,57 @@ if ("webkitSpeechRecognition" in window) {
   };
 
   recognition.onresult = (event) => {
-    userInput.value = event.results[0][0].transcript;
+    const transcript = event.results[0][0].transcript.trim();
+    userInput.value = transcript;
+    userInput.focus();
+    // Voice command logic: list/show meetings
+    const lower = transcript.toLowerCase();
+    if (lower.includes('show meetings') || lower.includes('list meetings')) {
+      if (Array.isArray(meetings) && meetings.length > 0) {
+        let msg = 'Here are your meetings:';
+        meetings.forEach((m, idx) => {
+          msg += `\n${idx + 1}. ${m.title} (${m.date ? m.date : ''} ${m.time ? m.time : ''})`;
+        });
+        appendMessage('Assistant', msg);
+      } else {
+        appendMessage('Assistant', 'No meetings found.');
+      }
+      return;
+    }
+    // Try to match a meeting title from voice
+    const foundMeeting = (meetings || []).find(m => lower.includes(m.title.toLowerCase()));
+    if (foundMeeting) {
+      let detailsHtml = `<b>Meeting Details:</b><br>`;
+      detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
+      detailsHtml += `<b>Date:</b> ${foundMeeting.date || ''}<br>`;
+      detailsHtml += `<b>Time:</b> ${foundMeeting.time || ''}<br>`;
+      if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
+      if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
+      if (foundMeeting.folder) {
+        let folderUrl = foundMeeting.folder;
+        if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
+          folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
+        }
+        detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
+      }
+      appendMessage('Assistant', detailsHtml, true);
+      selectedMeeting = foundMeeting;
+      return;
+    }
+    // Otherwise, send as normal chat
     handleSend();
   };
 
   recognition.onerror = (event) => {
-    appendMessage("system", `Speech recognition error: ${event.error}`);
+    if (event.error === "not-allowed") {
+      // Show a clear, user-friendly message only once per denied session
+      if (!window._voiceMicDenied) {
+        appendMessage("system", "Microphone access denied. Please allow microphone access for this extension in your browser settings and try again.\n\nHow to fix: Click the mic icon in your browser's address bar and allow mic access, or check your Chrome extension site permissions.");
+        window._voiceMicDenied = true;
+      }
+    } else {
+      appendMessage("system", `Speech recognition error: ${event.error}`);
+    }
   };
 }
 
@@ -360,7 +484,12 @@ micBtn.addEventListener("click", () => {
       "Speech recognition not supported in this browser."
     );
   }
-  isRecording ? recognition.stop() : recognition.start();
+  window._voiceMicDenied = false; // Reset denial flag each click
+  try {
+    isRecording ? recognition.stop() : recognition.start();
+  } catch (err) {
+    appendMessage("system", "Could not start voice input. Please check your microphone permissions.");
+  }
 });
 
 // --- Speech Synthesis ---
