@@ -43,11 +43,10 @@ class MeetingManager {
         this.renderMeetings();
       } else {
         // Fallback to sample data for demo
-        this.loadSampleData();
+        console.log("Failed to fetch meetings, using sample data");
       }
     } catch (error) {
       console.log("Backend not available, using sample data");
-      this.loadSampleData();
     }
   }
 
@@ -122,47 +121,6 @@ class MeetingManager {
       }
     }
     return cookieValue;
-  }
-
-  loadSampleData() {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    const lastWeek = new Date(today);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-
-    this.meetings = [
-      {
-        id: 1,
-        title: "Team Standup",
-        date: tomorrow.toISOString().split("T")[0],
-        time: "09:00",
-        link: "https://meet.google.com/abc-defg-hij",
-        folder: "team-updates",
-        description: "Weekly team sync and progress updates",
-      },
-      {
-        id: 2,
-        title: "Client Review",
-        date: nextWeek.toISOString().split("T")[0],
-        time: "14:00",
-        link: "https://zoom.us/j/1234567890",
-        folder: "client-meetings",
-        description: "Quarterly business review with client",
-      },
-      {
-        id: 3,
-        title: "Project Planning",
-        date: lastWeek.toISOString().split("T")[0],
-        time: "10:30",
-        link: "https://meet.google.com/xyz-uvwx-rst",
-        folder: "project-alpha",
-        description: "Sprint planning and resource allocation",
-      },
-    ];
-    this.renderMeetings();
   }
 
   openAddModal() {
@@ -246,10 +204,10 @@ class MeetingManager {
       }
     });
   }
-
   async handleSubmit(e) {
     e.preventDefault();
     this.clearFormErrors();
+
     const errors = [];
     const title = document.getElementById("meetingTitle").value.trim();
     const date = document.getElementById("meetingDate").value;
@@ -284,8 +242,17 @@ class MeetingManager {
     }
 
     // Meeting link must be a valid URL
-    if (link && !/^https?:\/\/.+\..+/.test(link)) {
-      errors.push("Meeting link must be a valid URL.");
+    if (link) {
+      const zoomRegex = /^https:\/\/(?:www\.)?zoom\.us\/j\/\d+$/;
+      const meetRegex =
+        /^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/;
+      if (
+        (platform === "Zoom" && !zoomRegex.test(link)) ||
+        (platform === "Meet" && !meetRegex.test(link)) ||
+        (platform !== "Zoom" && platform !== "Meet")
+      ) {
+        errors.push("Meeting link must be a valid " + platform + " URL.");
+      }
     }
 
     // Date can't be in the past
@@ -301,6 +268,7 @@ class MeetingManager {
       this.showFormErrors(errors);
       return;
     }
+    console.log("Time:", time);
 
     const meetingData = {
       title,
@@ -314,12 +282,24 @@ class MeetingManager {
       reminder,
     };
 
+    const submitBtn = document.getElementById("submitBtn");
+    const originalContent = submitBtn.innerHTML;
+    submitBtn.innerHTML = `
+  <div class="flex items-center justify-center space-x-2">
+    <div class="w-5 h-5 border-2 border-[#4FC1E9] border-t-transparent rounded-full animate-spin"></div>
+    <span>Saving...</span>
+  </div>
+`;
+
+    submitBtn.disabled = true;
+
     const success = await this.saveMeeting(meetingData);
+
     if (success) {
       await this.folderList();
       this.closeModal();
-      // Optionally show a success message
-      // alert('Meeting saved successfully!');
+      submitBtn.innerHTML = originalContent;
+      submitBtn.disabled = false;
     }
   }
 
@@ -334,7 +314,7 @@ class MeetingManager {
       dateObj = new Date(dateStr);
     }
     if (isNaN(dateObj)) return "Invalid Date";
-    return dateObj.toLocaleDateString("en-US", {
+    return dateObj.toLocaleDateString("en-BD", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -351,7 +331,7 @@ class MeetingManager {
     // Try to parse as ISO string
     const dateObj = new Date(timeStr);
     if (isNaN(dateObj)) return "Invalid Time";
-    return dateObj.toLocaleTimeString("en-US", {
+    return dateObj.toLocaleTimeString("en-BD", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
@@ -370,9 +350,7 @@ class MeetingManager {
 
       if (response.ok) {
         const data = await response.json();
-        console.log(data);
         this.folders = data.folders;
-        console.log(this.folders);
 
         const folder = this.folders.find((info) => info.id == folderValue);
         return folder ? folder.name : "No Folder";

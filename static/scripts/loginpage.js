@@ -181,7 +181,7 @@ document.addEventListener("DOMContentLoaded", function () {
   form.addEventListener("submit", async function (e) {
     e.preventDefault();
     // Reset errors
-    [emailError, passwordError, generalLoginError].forEach(el => {
+    [emailError, passwordError, generalLoginError].forEach((el) => {
       if (el) {
         el.textContent = "";
         el.classList.add("hidden");
@@ -214,12 +214,12 @@ document.addEventListener("DOMContentLoaded", function () {
       const response = await fetch("/checklogin/", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: emailInput.value.trim(),
-          password: passwordInput.value
-        })
+          password: passwordInput.value,
+        }),
       });
       const data = await response.json();
       if (response.ok && data.success) {

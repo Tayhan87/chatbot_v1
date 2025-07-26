@@ -152,7 +152,12 @@ def folderList(request):
         return JsonResponse({"error": "Method not allowed"}, status=405)
     
     try:
-        folders = list_of_folders(request.user.email) or []
+        service = get_drive_service(request.user)
+        response =service.files().list(
+            q="mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields='files(id,name)'
+        ).execute()
+        folders = response.get('files', [])
         return JsonResponse({"folders": folders}, status=200)
     except Exception as e:
         logger.error(f'Folder list error: {e}')
@@ -181,7 +186,7 @@ def setmeeting(request):
             f"{data['date']} {data['time']}", 
             "%Y-%m-%d %H:%M"
         )
-        aware_datetime = tz.localize(naive_datetime)
+        aware_datetime = naive_datetime.replace(tzinfo=pytz.UTC)
         
         meeting_info = {
             "meeting_title": data.get("title", "").strip(),
@@ -191,7 +196,12 @@ def setmeeting(request):
             "meeting_link": data.get("link", "").strip(),
             "meeting_folder": data.get("folder", "").strip(),
             "meeting_description": data.get("description", "").strip(),
+            "meeting_platform": data.get("platform", "").strip(),
+            "meeting_reminder": data.get("reminder", "").strip(),
+            "meeting_duration": data.get("duration"),  # Default to 60 minutes
         }
+        time_x=timedelta(minutes=int(meeting_info["meeting_duration"]))
+        print("Meeting Start Time:", meeting_info["meeting_start_time"])
         
         # Create calendar event
         event_id = create_google_calendar_event(user.email, meeting_info)
@@ -207,6 +217,9 @@ def setmeeting(request):
             date=meeting_info["meeting_date"],
             event_id=event_id,
             link=meeting_info["meeting_link"],
+            platform=meeting_info["meeting_platform"],
+            reminder=meeting_info["meeting_reminder"],
+            duration=time_x,
         )
         
         return JsonResponse({"message": "Meeting scheduled"}, status=201)
@@ -237,7 +250,7 @@ def showmeetings(request):
                 'description': event.description,
                 'folder': event.folder,
                 'link': event.link,
-                'duration': (event.end_time - event.start_time).seconds // 60 if event.end_time and event.start_time else 60,
+                'duration': event.duration/ timedelta(minutes=1) ,
                 'platform': getattr(event, 'platform', ''),
                 'reminder': getattr(event, 'reminder', ''),
             })
@@ -262,7 +275,8 @@ def editevent(request, id):
             f"{data['date']} {data['time']}", 
             "%Y-%m-%d %H:%M"
         )
-        aware_datetime = tz.localize(naive_datetime)
+        aware_datetime = naive_datetime.replace(tzinfo=pytz.UTC)
+        print("Aware Datetime:", aware_datetime)
         
         # Update event fields
         event.title = data.get("title", "").strip()
@@ -272,6 +286,9 @@ def editevent(request, id):
         event.folder = data.get("folder", "").strip()
         event.date = data.get("date", "").strip()
         event.link = data.get("link", "").strip()
+        event.platform = data.get("platform", "").strip()
+        event.reminder = data.get("reminder", "").strip()
+        event.duration = timedelta(minutes=int(data.get("duration", 60)))
         
         event.save()
         return JsonResponse({"message": "Event updated successfully"}, status=200)
