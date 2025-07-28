@@ -148,7 +148,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-GEMINI_API_KEY = os.getenv('AIzaSyDYrY-2iOMeLPD6oTTupY4WJeffZQXc1f8')
+GEMINI_API_KEY = 'AIzaSyDYrY-2iOMeLPD6oTTupY4WJeffZQXc1f8'
 
 GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
 
@@ -181,6 +181,7 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install google-generativeai
 #pip install -q -U google-genai
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+#pip install python-docx PyPDF2
 
 
 
