@@ -206,15 +206,16 @@ async function fetchMeetings() {
   populateMeetings();
 }
 
-async function callAPI(message) {
+async function callAPI(message, folder) {
   try {
+    console.log("Calling API with message:", message, "and folder:", folder);
     const response = await fetch(API_CONFIG.CHAT_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-CSRFToken": getCSRFToken(),
       },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, folder }),
     });
 
     if (!response.ok) {
@@ -294,7 +295,7 @@ if (summarizeBtn) {
 
 
 // --- Chat Logic ---
-function appendMessage(sender, text, isHtml = false) {
+function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
   messageDiv.className = `message ${
     sender === "You" ? "user" : sender === "system" ? "system" : "assistant"
@@ -382,7 +383,7 @@ async function handleSend() {
   chatArea.appendChild(typingDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
 
-  const reply = await callAPI(message);
+  const reply = await callAPI(message, selectedMeeting.folder);
 
   chatArea.removeChild(typingDiv);
   appendMessage("Assistant", reply);

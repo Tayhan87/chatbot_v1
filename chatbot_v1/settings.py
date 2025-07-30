@@ -41,6 +41,7 @@ SOCIALACCOUNT_PROVIDERS = {
             'https://www.googleapis.com/auth/drive',
             'https://www.googleapis.com/auth/drive.file',
             'https://www.googleapis.com/auth/calendar',
+            'openid',
         ],
         'AUTH_PARAMS': {
             'access_type': 'offline',
@@ -147,6 +148,13 @@ USE_I18N = True
 
 USE_TZ = True
 
+<<<<<<< HEAD
+=======
+GEMINI_API_KEY = 'AIzaSyDYrY-2iOMeLPD6oTTupY4WJeffZQXc1f8'
+
+GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
+
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -176,6 +184,7 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install google-generativeai
 #pip install -q -U google-genai
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
+#pip install python-docx PyPDF2
 
 GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
 
