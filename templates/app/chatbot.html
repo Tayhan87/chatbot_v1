@@ -6,67 +6,355 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard - AI Chat Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{% static 'css/chatbot.css' %}" />
+    <style>
+      /* Enhanced styles for refined UI */
+      .refined-glass-effect {
+        background: rgba(17, 24, 39, 0.85);
+        backdrop-filter: blur(25px);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      .refined-message-glass {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+      }
+
+      .refined-user-message {
+        background: linear-gradient(
+          135deg,
+          rgba(59, 130, 246, 0.9),
+          rgba(37, 99, 235, 0.95)
+        );
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        box-shadow: 0 8px 32px rgba(59, 130, 246, 0.2);
+      }
+
+      .refined-bot-message {
+        background: linear-gradient(
+          135deg,
+          rgba(16, 185, 129, 0.15),
+          rgba(5, 150, 105, 0.25)
+        );
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        box-shadow: 0 8px 32px rgba(16, 185, 129, 0.1);
+      }
+
+      .refined-input-container {
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(25px);
+        border: 2px solid rgba(59, 130, 246, 0.25);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      }
+
+      .refined-input-container:focus-within {
+        border-color: rgba(59, 130, 246, 0.6);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.3),
+          0 4px 20px rgba(0, 0, 0, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .refined-voice-btn {
+        background: linear-gradient(135deg, #10b981, #059669);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+      }
+
+      .refined-voice-btn:hover {
+        background: linear-gradient(135deg, #059669, #047857);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+      }
+
+      .refined-voice-btn.recording {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        animation: refined-pulse 1.5s infinite;
+        box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+      }
+
+      .refined-send-btn {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+      }
+
+      .refined-send-btn:hover:not(:disabled) {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+      }
+
+      .refined-send-btn:disabled {
+        background: linear-gradient(135deg, #6b7280, #4b5563);
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      }
+
+      .refined-typing-dots {
+        display: inline-flex;
+        gap: 6px;
+      }
+
+      .refined-typing-dot {
+        width: 8px;
+        height: 8px;
+        background: #10b981;
+        border-radius: 50%;
+        animation: refined-typing 1.4s infinite ease-in-out;
+      }
+
+      .refined-typing-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .refined-typing-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      .refined-message-enter {
+        animation: refined-messageSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)
+          forwards;
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      .refined-user-message-enter {
+        animation: refined-userMessageSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1)
+          forwards;
+        opacity: 0;
+        transform: translateX(20px);
+      }
+
+      .refined-wave-effect {
+        position: absolute;
+        inset: 0;
+        border-radius: 12px;
+        border: 2px solid rgba(16, 185, 129, 0.6);
+        animation: refined-wave 2s infinite;
+        opacity: 0;
+      }
+
+      .refined-voice-status {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        backdrop-filter: blur(10px);
+      }
+
+      .refined-notification {
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      @keyframes refined-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
+      @keyframes refined-typing {
+        0%,
+        60%,
+        100% {
+          transform: translateY(0);
+        }
+        30% {
+          transform: translateY(-10px);
+        }
+      }
+
+      @keyframes refined-messageSlideIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @keyframes refined-userMessageSlideIn {
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+
+      @keyframes refined-wave {
+        0% {
+          transform: scale(1);
+          opacity: 0;
+        }
+        50% {
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.5);
+          opacity: 0;
+        }
+      }
+
+      /* Enhanced chat scroll */
+      .refined-chat-scroll::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .refined-chat-scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .refined-chat-scroll::-webkit-scrollbar-thumb {
+        background: rgba(59, 130, 246, 0.4);
+        border-radius: 3px;
+      }
+
+      .refined-chat-scroll::-webkit-scrollbar-thumb:hover {
+        background: rgba(59, 130, 246, 0.6);
+      }
+    </style>
   </head>
   <body class="min-h-screen bg-image flex items-center justify-center p-4">
     <!-- Refresh Button Top Right -->
-    <button id="refreshChatbotBtn" title="Refresh" onclick="location.reload()" class="fixed top-6 right-6 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"/></svg>
+    <button
+      id="refreshChatbotBtn"
+      title="Refresh"
+      onclick="location.reload()"
+      class="fixed top-6 right-6 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-5 w-5 text-white"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"
+        />
+      </svg>
       <span>Refresh</span>
     </button>
     <div class="absolute inset-0 bg-gray-900 bg-opacity-50"></div>
-    <div class="relative z-10 w-full max-w-6xl h-[90vh] flex rounded-3xl shadow-2xl border border-gray-700 glass-effect">
+    <div
+      class="relative z-10 w-full max-w-6xl h-[90vh] flex rounded-3xl shadow-2xl border border-gray-700 glass-effect"
+    >
       <!-- Sidebar -->
-      <aside class="flex flex-col justify-between w-64 bg-gray-900 bg-opacity-80 rounded-l-3xl p-6 border-r border-gray-700">
+      <aside
+        class="flex flex-col justify-between w-64 bg-gray-900 bg-opacity-80 rounded-l-3xl p-6 border-r border-gray-700"
+      >
         <div>
           <!-- AI Chat Assistant -->
-          <button id="aiChatBtn" class="w-full flex items-center space-x-3 bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-bold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none">
+          <button
+            id="aiChatBtn"
+            class="w-full flex items-center space-x-3 bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-bold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none hover:shadow-2xl transition-all duration-300 hover:scale-105"
+          >
             <span class="text-2xl">💬</span>
             <span>AI Chat Assistant</span>
           </button>
           <!-- Google Drive Picker Button -->
-          <button id="google-drive-btn" class="w-full flex items-center space-x-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none">
+          <button
+            id="google-drive-btn"
+            class="w-full flex items-center space-x-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none hover:shadow-2xl transition-all duration-300 hover:scale-105"
+          >
             <span class="text-xl">📁</span>
             <span>Google Drive</span>
           </button>
           <div id="driveMsg" class="text-sm text-yellow-300 mb-4 hidden"></div>
           <!-- Manage Meetings -->
-          <a href="{% url 'eventadd' %}" class="w-full flex items-center space-x-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none">
+          <a
+            href="{% url 'eventadd' %}"
+            class="w-full flex items-center space-x-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold py-3 px-4 rounded-xl mb-6 shadow-lg focus:outline-none hover:shadow-2xl transition-all duration-300 hover:scale-105"
+          >
             <span class="text-xl">📅</span>
             <span>Manage Meetings</span>
           </a>
           <!-- Drive Links for Today's Meetings -->
           <div class="mb-6">
-            <h2 class="text-lg font-bold text-white mb-2 flex items-center"> 
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3M16 7V3M4 11H20M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 16l2 2 4-4"/></svg>
+            <h2 class="text-lg font-bold text-white mb-2 flex items-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6 text-blue-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M8 7V3M16 7V3M4 11H20M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 16l2 2 4-4"
+                />
+              </svg>
               <span class="ml-2">Today's Meetings</span>
             </h2>
-            <div id="sidebarTodaysMeetings" class="bg-gray-800 rounded-lg p-2 max-h-40 overflow-y-auto text-sm text-blue-300 space-y-2">
-              <div class="text-gray-400">Give new folder link: Share or update a Drive link for a meeting</div>
+            <div
+              id="sidebarTodaysMeetings"
+              class="bg-gray-800 rounded-lg p-2 max-h-40 overflow-y-auto text-sm text-blue-300 space-y-2"
+            >
+              <div class="text-gray-400">
+                Give new folder link: Share or update a Drive link for a meeting
+              </div>
               <!-- Meeting items will be rendered here by JS if available -->
             </div>
           </div>
         </div>
       </aside>
+
       <!-- Main Content -->
       <main class="flex-1 flex flex-col p-8 overflow-y-auto">
         <!-- Meetings and Notifications -->
         <section id="mainContent" class="flex flex-col md:flex-row gap-8">
           <!-- Only show the Drive Link update section, remove today's meetings list -->
-          <div class="flex-1 bg-gray-800 bg-opacity-80 rounded-xl p-6 shadow-md mb-8">
+          <div
+            class="flex-1 bg-gray-800 bg-opacity-80 rounded-xl p-6 shadow-md mb-8"
+          >
             <div class="mt-2">
-              <label for="meetingSelect" class="block text-base font-semibold text-white mb-2 flex items-center">
-                <span class="mr-2">🔗</span>Share or update a Drive link for a meeting:
+              <label
+                for="meetingSelect"
+                class="block text-base font-semibold text-white mb-2 flex items-center"
+              >
+                <span class="mr-2">🔗</span>Share or update a Drive link for a
+                meeting:
               </label>
               <div class="flex space-x-2">
-                <select id="meetingSelect" class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"></select>
-                <input type="url" id="meetingFolderLink" placeholder="Paste Google Drive folder link" class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400" />
-                <button id="saveFolderLinkBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg">Save Link</button>
+                <select
+                  id="meetingSelect"
+                  class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"
+                ></select>
+                <input
+                  type="url"
+                  id="meetingFolderLink"
+                  placeholder="Paste Google Drive folder link"
+                  class="flex-1 px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:border-blue-400"
+                />
+                <button
+                  id="saveFolderLinkBtn"
+                  class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg transition-all duration-300 hover:shadow-lg"
+                >
+                  Save Link
+                </button>
               </div>
-              <div id="folderLinkStatus" class="mt-2 text-sm text-green-400 hidden"></div>
+              <div
+                id="folderLinkStatus"
+                class="mt-2 text-sm text-green-400 hidden"
+              ></div>
             </div>
           </div>
         </section>
+<<<<<<< HEAD
         <!-- Chat Area (hidden by default, shown when AI Chat Assistant is clicked) -->
         <section id="chatSection" class="hidden mt-8">
           <div class="bg-gray-900 bg-opacity-80 rounded-xl p-6 shadow-md w-full max-w-2xl mx-auto flex flex-col" style="height: 600px; min-height: 400px; max-height: 80vh;">
@@ -94,32 +382,159 @@
               </div>
             </div>
             <form id="chatForm" class="flex space-x-3 mt-2">
-              <input type="text" id="messageInput" placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white" autocomplete="off" />
-              <button type="submit" class="bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-semibold px-6 py-2 rounded-lg">Send</button>
-            </form>
+  <input type="text" id="messageInput" placeholder="Type your message..." class="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white" autocomplete="off" />
+  <button type="button" id="voiceInputBtn" aria-label="Voice Input" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center justify-center focus:outline-none" style="min-width:40px;">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+  </button>
+  <button type="submit" class="bg-gradient-to-r from-[#4FC1E9] to-[#3BAFDA] text-white font-semibold px-6 py-2 rounded-lg">Send</button>
+</form>
+=======
+
+        <!-- Enhanced Chat Area -->
+        <section id="chatSection" class="hidden mt-5">
+          <div
+            class="refined-glass-effect rounded-2xl p-6 shadow-2xl w-full max-w-4xl mx-auto flex flex-col"
+            style="height: 700px; min-height: 500px; max-height: 85vh"
+          >
+            <!-- Chat Header -->
+            <div
+              class="flex items-center justify-between mb-6 pb-4 border-b border-gray-600"
+            >
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center"
+                >
+                  <i class="fas fa-robot text-white text-lg"></i>
+                </div>
+                <div>
+                  <h3
+                    class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent"
+                  >
+                    AI Chat Assistant
+                  </h3>
+                  <p class="text-sm text-gray-400">Powered by advanced AI</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 text-sm text-gray-400">
+                  <div
+                    class="w-2 h-2 bg-green-400 rounded-full animate-pulse"
+                  ></div>
+                  <span>Online</span>
+                </div>
+                <button
+                  id="refreshChatBtn"
+                  title="Refresh Chat"
+                  class="p-2 rounded-full bg-gray-700 hover:bg-blue-500 transition-all duration-300 hover:scale-110"
+                >
+                  <i class="fas fa-sync-alt text-white"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Chat Messages -->
+            <div class="flex-1 overflow-hidden mb-6">
+              <div
+                id="chatMessages"
+                class="refined-chat-scroll h-full overflow-y-auto space-y-4 pr-2"
+              >
+                <div class="space-y-4">
+                  <!-- Welcome Message -->
+                  <div class="flex justify-start">
+                    <div
+                      class="refined-bot-message max-w-lg p-4 rounded-2xl rounded-bl-sm refined-message-enter"
+                    >
+                      <div class="flex items-center space-x-2 mb-2">
+                        <div
+                          class="w-6 h-6 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center"
+                        >
+                          <i class="fas fa-robot text-white text-xs"></i>
+                        </div>
+                        <span class="text-sm font-semibold text-emerald-400"
+                          >AI Assistant</span
+                        >
+                      </div>
+                      <p class="text-slate-200">
+                        👋 Welcome to the AI Chat Assistant! You can type your
+                        message or use the voice input button to speak with me.
+                        How can I help you today?
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Enhanced Input Area -->
+            <div class="refined-input-container rounded-2xl p-4">
+              <form id="chatForm" class="flex items-end space-x-3">
+                <!-- Voice Input Button -->
+                <button
+                  type="button"
+                  id="voiceBtn"
+                  class="refined-voice-btn w-12 h-12 rounded-xl flex items-center justify-center text-white font-medium focus:outline-none relative"
+                >
+                  <div
+                    class="refined-wave-effect"
+                    id="waveEffect"
+                    style="display: none"
+                  ></div>
+                  <i id="micIcon" class="fas fa-microphone text-lg"></i>
+                  <i id="stopIcon" class="fas fa-stop text-lg hidden"></i>
+                </button>
+
+                <!-- Text Input -->
+                <div class="flex-1 relative">
+                  <textarea
+                    id="messageInput"
+                    placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"
+                    class="w-full bg-transparent text-white placeholder-gray-400 resize-none rounded-xl px-4 py-3 focus:outline-none min-h-[48px] max-h-32"
+                    rows="1"
+                    autocomplete="off"
+                  ></textarea>
+                </div>
+
+                <!-- Send Button -->
+                <button
+                  type="submit"
+                  id="sendBtn"
+                  class="refined-send-btn w-12 h-12 rounded-xl flex items-center justify-center text-white font-medium focus:outline-none"
+                >
+                  <i class="fas fa-paper-plane text-lg"></i>
+                </button>
+              </form>
+
+              <!-- Voice Status -->
+              <div
+                id="voiceStatus"
+                class="hidden mt-3 flex items-center space-x-2 text-sm refined-voice-status rounded-lg px-3 py-2"
+              >
+                <div class="refined-typing-dots">
+                  <div class="refined-typing-dot"></div>
+                  <div class="refined-typing-dot"></div>
+                  <div class="refined-typing-dot"></div>
+                </div>
+                <span class="text-emerald-400">Listening...</span>
+              </div>
+            </div>
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
           </div>
         </section>
       </main>
+
       <!-- Logout Button fixed to bottom left -->
-      <button id="logoutBtn" class="fixed bottom-8 left-8 flex items-center space-x-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg focus:outline-none z-50">
+      <button
+        id="logoutBtn"
+        class="fixed bottom-8 left-8 flex items-center space-x-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg focus:outline-none z-50 hover:shadow-2xl transition-all duration-300 hover:scale-105"
+      >
         <span class="text-xl">🚪</span>
         <span>Logout</span>
       </button>
     </div>
+
     <script src="{% static 'scripts/chatbot.js' %}"></script>
-    <script src="{% static 'scripts/index.js' %}"></script>
     <script>
-      // Toggle chat section and initialize chat interface only once
-      let chatInitialized = false;
-      document.getElementById('aiChatBtn').addEventListener('click', function() {
-        const chatSection = document.getElementById('chatSection');
-        chatSection.classList.toggle('hidden');
-        if (!chatInitialized && !chatSection.classList.contains('hidden')) {
-          new window.ChatInterface();
-          chatInitialized = true;
-        }
-      });
-      window.GOOGLE_ACCESS_TOKEN = "{{ google_access_token|default:'' }}";
+      // Enhanced ChatInterface with voice input
     </script>
   </body>
 </html>

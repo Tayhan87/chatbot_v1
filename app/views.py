@@ -10,16 +10,34 @@ import json
 import pytz
 from django.conf import settings
 from django.utils import timezone
+<<<<<<< HEAD
 
 from google import genai
 from chatbot_v1.drive import manage_folder,list_of_folders, get_drive_service
 from chatbot_v1.calendar import create_google_calendar_event , update_google_calendar_event , delete_google_calendar_event
+=======
+import google.generativeai as genai
+from chatbot_v1.drive import manage_folder, list_of_folders, get_drive_service
+from chatbot_v1.calendar import create_google_calendar_event
+import logging
+import os
+import mimetypes
+import io
+import tempfile
+from googleapiclient.http import MediaIoBaseDownload
+
+# Imports for text extraction
+import docx
+from PyPDF2 import PdfReader
+
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 try:
     from allauth.socialaccount.models import SocialAccount, SocialToken
 except ImportError:
     SocialAccount = None
 
+<<<<<<< HEAD
 def index(request):
     if request.user.is_authenticated:
         return redirect('chatbot')
@@ -52,6 +70,180 @@ def chat_api(request):
     return JsonResponse({'error': 'Invalid request'}, status=400)
 
 
+=======
+def get_files_from_drive_folder(service, folder_id):
+    """
+    Recursively finds all supported files (PDF, DOCX, images) in a given Google Drive folder
+    and its subfolders.
+
+    Args:
+        service: An authenticated Google Drive service object.
+        folder_id (str): The ID of the root Google Drive folder.
+
+    Returns:
+        list: A list of dictionaries, each containing the 'id', 'name', and 'mimeType' of a supported file.
+    """
+    supported_mime_types = {
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/heic',
+        'image/heif'
+    }
+    files_to_process = []
+    folders_to_visit = [folder_id]  # Start with the root folder
+
+    while folders_to_visit:
+        current_folder_id = folders_to_visit.pop(0)
+        page_token = None
+        while True:
+            try:
+                response = service.files().list(
+                    q=f"'{current_folder_id}' in parents and trashed=false",
+                    spaces='drive',
+                    fields='nextPageToken, files(id, name, mimeType)',
+                    pageToken=page_token
+                ).execute()
+
+                for file in response.get('files', []):
+                    mime_type = file.get('mimeType')
+                    if mime_type == 'application/vnd.google-apps.folder':
+                        # If it's a folder, add it to the list to visit
+                        folders_to_visit.append(file.get('id'))
+                    elif mime_type in supported_mime_types:
+                        # If it's a supported file, add its details to our list
+                        files_to_process.append({
+                            'id': file.get('id'),
+                            'name': file.get('name'),
+                            'mimeType': mime_type
+                        })
+                
+                page_token = response.get('nextPageToken', None)
+                if page_token is None:
+                    break
+            except Exception as e:
+                logger.error(f"Error listing files in Drive folder {current_folder_id}: {e}")
+                break  # Stop processing this folder on error
+    return files_to_process
+
+@csrf_exempt
+def chat_api(request):
+    """
+    Handle chatbot API requests. It processes files from a Google Drive folder by
+    downloading them, extracting text from documents, and uploading images.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+    
+    temp_file_paths = []  # To keep track of all temporary files for cleanup
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '')
+        folder_id = data.get('folder')
+
+        api_key = getattr(settings, 'GEMINI_API_KEY', None)
+        if not api_key:
+            logger.error('Gemini API key not configured')
+            return JsonResponse({'response': 'Service unavailable'}, status=503)
+        
+        genai.configure(api_key=api_key)
+        
+        prompt_parts = [user_message]
+
+        if folder_id:
+            service = get_drive_service(request.user)
+            if not service:
+                logger.error("Could not get Google Drive service for the user.")
+                return JsonResponse({'response': 'Could not access Google Drive.'}, status=500)
+
+            files_info = get_files_from_drive_folder(service, folder_id)
+            
+            text_mime_types = {
+                'application/pdf',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            }
+            image_mime_types = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'}
+
+            for file_info in files_info:
+                file_id = file_info['id']
+                file_name = file_info['name']
+                mime_type = file_info['mimeType']
+                temp_path = None
+
+                try:
+                    # Step 1: Download the file to a temporary path regardless of type
+                    logger.info(f"Downloading '{file_name}' from Drive.")
+                    request_download = service.files().get_media(fileId=file_id)
+                    _, file_extension = os.path.splitext(file_name)
+                    
+                    # Create a temporary file and ensure we have its path
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+                        temp_path = temp_file.name
+                        downloader = MediaIoBaseDownload(temp_file, request_download)
+                        done = False
+                        while not done:
+                            status, done = downloader.next_chunk()
+
+                    temp_file_paths.append(temp_path) # Add to list for cleanup
+
+                    # Step 2: Process the downloaded file based on its type
+                    if mime_type in text_mime_types:
+                        logger.info(f"Extracting text from '{file_name}'.")
+                        text_content = ""
+                        if mime_type == 'application/pdf':
+                            with open(temp_path, 'rb') as f:
+                                reader = PdfReader(f)
+                                for page in reader.pages:
+                                    extracted = page.extract_text()
+                                    if extracted:
+                                        text_content += extracted + "\n"
+                        elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                            doc = docx.Document(temp_path)
+                            for para in doc.paragraphs:
+                                text_content += para.text + "\n"
+                        
+                        if text_content.strip():
+                            prompt_parts.append(f"\n--- Content from file: {file_name} ---\n{text_content}")
+                        else:
+                            logger.warning(f"No text could be extracted from '{file_name}'.")
+
+                    elif mime_type in image_mime_types:
+                        logger.info(f"Uploading image '{file_name}' to Gemini.")
+                        uploaded_file = genai.upload_file(path=temp_path, display_name=file_name)
+                        prompt_parts.append(uploaded_file)
+
+                except Exception as e:
+                    logger.error(f"Failed to process file '{file_name}' (ID: {file_id}): {e}")
+                    prompt_parts.append(f"\n--- Could not process file: {file_name} ---")
+                    # If the temp file was created before the error, it will be cleaned up in `finally`
+
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+        response = model.generate_content(prompt_parts)
+        
+        bot_response = response.text if response and hasattr(response, 'text') else "I'm not sure how to respond to that."
+        return JsonResponse({'response': bot_response})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.exception('chat_api error')
+        return JsonResponse({'response': f'Service error: {e}'}, status=500)
+    finally:
+        # Clean up any temporary files that were created
+        for path in temp_file_paths:
+            try:
+                os.remove(path)
+                logger.info(f"Removed temporary file: {path}")
+            except OSError as e:
+                logger.error(f"Error removing temporary file {path}: {e}")
+
+
+def index(request):
+    """Redirect authenticated users to chatbot, others to login"""
+    return redirect('chatbot' if request.user.is_authenticated else 'login_page')
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 def loginpage(request):
     return render(request,"app/loginpage.html")
@@ -137,6 +329,7 @@ def eventadd(request):
     return render(request, "app/eventadd.html", {'folders': folders})
 
 def folderList(request):
+<<<<<<< HEAD
     if request.method=="POST":
         folders= list_of_folders(request.user.email)
         if not folders:
@@ -148,6 +341,23 @@ def folderList(request):
         return JsonResponse({"folders":folders},status=200)
 
 
+=======
+    """Get list of user's Google Drive folders"""
+    if request.method != "POST":
+        return JsonResponse({"error": "Method not allowed"}, status=405)
+    
+    try:
+        service = get_drive_service(request.user)
+        response =service.files().list(
+            q="mimeType='application/vnd.google-apps.folder' and trashed=false",
+            fields='files(id,name)'
+        ).execute()
+        folders = response.get('files', [])
+        return JsonResponse({"folders": folders}, status=200)
+    except Exception as e:
+        logger.error(f'Folder list error: {e}')
+        return JsonResponse({"error": "Could not fetch folders"}, status=500)
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 def mngmeeting(request):
     return render(request,"app/mngmeeting.html")
@@ -165,6 +375,7 @@ def setmeeting(request):
 
     if request.method == "POST":
         data = json.loads(request.body)
+<<<<<<< HEAD
 
         # Try to get the user, or use the first user as default for testing
         user = getattr(request, 'user', None)
@@ -219,6 +430,64 @@ def setmeeting(request):
 
         return JsonResponse({"message": "Meeting saved successfully"}, status=200)
     return JsonResponse({"error": "Invalid request"}, status=400)
+=======
+        user = request.user if request.user.is_authenticated else get_user_model().objects.first()
+        
+        if not user:
+            return JsonResponse({"error": "No user available"}, status=400)
+        
+        # Parse datetime using project timezone
+        tz = pytz.timezone(settings.TIME_ZONE)
+        naive_datetime = datetime.strptime(
+            f"{data['date']} {data['time']}", 
+            "%Y-%m-%d %H:%M"
+        )
+        aware_datetime = naive_datetime.replace(tzinfo=pytz.UTC)
+        
+        meeting_info = {
+            "meeting_title": data.get("title", "").strip(),
+            "meeting_date": data.get("date", "").strip(),
+            "meeting_start_time": aware_datetime.isoformat(),
+            "meeting_end_time": (aware_datetime + timedelta(minutes=60)).isoformat(),
+            "meeting_link": data.get("link", "").strip(),
+            "meeting_folder": data.get("folder", "").strip(),
+            "meeting_description": data.get("description", "").strip(),
+            "meeting_platform": data.get("platform", "").strip(),
+            "meeting_reminder": data.get("reminder", "").strip(),
+            "meeting_duration": data.get("duration"),  # Default to 60 minutes
+        }
+        time_x=timedelta(minutes=int(meeting_info["meeting_duration"]))
+        print("Meeting Start Time:", meeting_info["meeting_start_time"])
+        
+        # Create calendar event
+        event_id = create_google_calendar_event(user.email, meeting_info)
+        
+        # Save to database
+        CalendarEvent.objects.create(
+            user=user,
+            title=meeting_info["meeting_title"],
+            start_time=meeting_info["meeting_start_time"],
+            end_time=meeting_info["meeting_end_time"],
+            description=meeting_info["meeting_description"],
+            folder=meeting_info["meeting_folder"],
+            date=meeting_info["meeting_date"],
+            event_id=event_id,
+            link=meeting_info["meeting_link"],
+            platform=meeting_info["meeting_platform"],
+            reminder=meeting_info["meeting_reminder"],
+            duration=time_x,
+        )
+        
+        return JsonResponse({"message": "Meeting scheduled"}, status=201)
+        
+    except KeyError as e:
+        return JsonResponse({"error": f"Missing field: {e}"}, status=400)
+    except ValueError as e:
+        return JsonResponse({"error": f"Invalid date format: {e}"}, status=400)
+    except Exception as e:
+        logger.exception('Meeting creation failed')
+        return JsonResponse({"error": "Meeting scheduling failed"}, status=500)
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 @csrf_exempt
 def showmeetings(request):
@@ -236,7 +505,7 @@ def showmeetings(request):
                 'description': event.description,
                 'folder': event.folder,
                 'link': event.link,
-                'duration': (event.end_time - event.start_time).seconds // 60 if event.end_time and event.start_time else 60,
+                'duration': event.duration/ timedelta(minutes=1) ,
                 'platform': getattr(event, 'platform', ''),
                 'reminder': getattr(event, 'reminder', ''),
             })
@@ -252,6 +521,7 @@ def editevent(request, id):
         import pytz
         event = CalendarEvent.objects.get(id=id)
         data = json.loads(request.body)
+<<<<<<< HEAD
         stime = data.get("time", " ").strip()
         sdate = data.get("date", " ").strip()
         naive_datetime = datetime.strptime(f"{sdate} {stime}", "%Y-%m-%d %H:%M")
@@ -283,6 +553,42 @@ def editevent(request, id):
         except Exception as e:
             print(f"Error updating event: {e}")
             return JsonResponse({"error": "Failed to update event"}, status=500)
+=======
+        
+        # Parse datetime
+        tz = pytz.timezone(settings.TIME_ZONE)
+        naive_datetime = datetime.strptime(
+            f"{data['date']} {data['time']}", 
+            "%Y-%m-%d %H:%M"
+        )
+        aware_datetime = naive_datetime.replace(tzinfo=pytz.UTC)
+        print("Aware Datetime:", aware_datetime)
+        
+        # Update event fields
+        event.title = data.get("title", "").strip()
+        event.start_time = aware_datetime
+        event.end_time = aware_datetime + timedelta(minutes=60)
+        event.description = data.get("description", "").strip()
+        event.folder = data.get("folder", "").strip()
+        event.date = data.get("date", "").strip()
+        event.link = data.get("link", "").strip()
+        event.platform = data.get("platform", "").strip()
+        event.reminder = data.get("reminder", "").strip()
+        event.duration = timedelta(minutes=int(data.get("duration", 60)))
+        
+        event.save()
+        return JsonResponse({"message": "Event updated successfully"}, status=200)
+        
+    except CalendarEvent.DoesNotExist:
+        return JsonResponse({"error": "Event not found"}, status=404)
+    except KeyError as e:
+        return JsonResponse({"error": f"Missing field: {e}"}, status=400)
+    except ValueError as e:
+        return JsonResponse({"error": f"Invalid date format: {e}"}, status=400)
+    except Exception as e:
+        logger.error(f'Event update error: {e}')
+        return JsonResponse({"error": "Failed to update event"}, status=500)
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 @csrf_exempt
 def deleteevent(request, id):
@@ -421,6 +727,7 @@ def userinfo(request):
     email = user.email
     # If you add a profile image field in the future, include it here
     return JsonResponse({
+<<<<<<< HEAD
         'name': name,
         'email': email,
         # 'profile_image': user.profile_image.url if hasattr(user, 'profile_image') and user.profile_image else None
@@ -429,3 +736,8 @@ def userinfo(request):
 
 
 
+=======
+        'name': user.username or user.email,
+        'email': user.email,
+    })
+>>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
