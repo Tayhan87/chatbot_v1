@@ -3,26 +3,9 @@ class ChatInterface {
     this.messageInput = document.getElementById("messageInput");
     this.chatMessages = document.getElementById("chatMessages");
     this.chatForm = document.getElementById("chatForm");
-    this.speechRepliesToggle = document.getElementById("speechRepliesToggle");
-    this.chatMeetingSelect = document.getElementById("chatMeetingSelect");
-    this.summarizeMeetingBtn = document.getElementById("summarizeMeetingBtn");
-    this.selectedMeeting = null;
-    this.meetings = [];
     this.isRecording = false;
     this.recognition = null;
-    this.speechRepliesEnabled = false;
     this.init();
-    // Voice input button
-    this.voiceInputBtn = document.getElementById("voiceInputBtn");
-    this.micRecording = false;
-    if (this.voiceInputBtn) {
-      this.voiceInputBtn.addEventListener("click", () => this.toggleVoiceInput());
-    }
-    // Prepare icons for visual feedback (optional, can be improved)
-    if (this.voiceInputBtn) {
-      this.voiceInputBtn._defaultBg = this.voiceInputBtn.style.backgroundColor;
-    }
-    this.initSpeechRecognition && this.initSpeechRecognition();
   }
 
   init() {
@@ -45,41 +28,6 @@ class ChatInterface {
         this.messageInput.style.height = "auto";
         this.messageInput.style.height =
           Math.min(this.messageInput.scrollHeight, 120) + "px";
-      });
-    }
-    if (this.speechRepliesToggle) {
-      this.speechRepliesToggle.addEventListener("change", (e) => {
-        this.speechRepliesEnabled = e.target.checked;
-      });
-      // Default: speech replies off
-      this.speechRepliesToggle.checked = false;
-      this.speechRepliesEnabled = false;
-    }
-    if (this.chatMeetingSelect) {
-      this.fetchMeetings();
-      this.chatMeetingSelect.addEventListener("change", (e) => {
-        const meetingId = e.target.value;
-        this.selectedMeeting = this.meetings.find(m => m.id == meetingId) || null;
-      });
-    }
-    if (this.summarizeMeetingBtn) {
-      this.summarizeMeetingBtn.addEventListener("click", () => this.summarizeSelectedMeeting());
-    }
-    this.stopVoiceBtn = document.getElementById("stopVoiceBtn");
-    if (this.stopVoiceBtn) {
-      this.stopVoiceBtn.addEventListener("click", () => {
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-        }
-      });
-    }
-    this.resetChatBtn = document.getElementById("resetChatBtn");
-    if (this.resetChatBtn) {
-      this.resetChatBtn.addEventListener("click", () => {
-        // Clear chat messages and show welcome message
-        let messagesContainer = this.chatMessages.querySelector(".space-y-4");
-        if (!messagesContainer) messagesContainer = this.chatMessages;
-        messagesContainer.innerHTML = '<div class="text-gray-400">Welcome to the AI Chat Assistant!</div>';
       });
     }
   }
@@ -167,75 +115,19 @@ class RefinedChatInterface extends ChatInterface {
 
       this.recognition.onstart = () => {
         this.isRecording = true;
-<<<<<<< HEAD
-        if (this.voiceInputBtn) {
-          this.voiceInputBtn.classList.add("bg-red-500");
-          this.voiceInputBtn.classList.remove("bg-blue-500", "hover:bg-blue-600");
-        }
-=======
         this.voiceButton.classList.add("recording");
         this.micIcon.classList.add("hidden");
         this.stopIcon.classList.remove("hidden");
         this.voiceStatus.classList.remove("hidden");
         this.waveEffect.style.display = "block";
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
       };
 
       this.recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript.trim();
+        const transcript = event.results[0][0].transcript;
         this.messageInput.value = transcript;
         this.messageInput.focus();
-<<<<<<< HEAD
-        // Auto-resize textarea after voice input
-        this.messageInput.style.height = "auto";
-        this.messageInput.style.height =
-          Math.min(this.messageInput.scrollHeight, 120) + "px";
-
-        // Meeting voice command logic
-        const lower = transcript.toLowerCase();
-        if (lower.includes('show meetings') || lower.includes('list meetings')) {
-          // Show meetings list in chat
-          if (Array.isArray(this.meetings) && this.meetings.length > 0) {
-            let msg = 'Here are your meetings:';
-            this.meetings.forEach((m, idx) => {
-              msg += `\n${idx + 1}. ${m.title} (${m.date} ${m.time})`;
-            });
-            this.addMessage(msg, 'bot');
-          } else {
-            this.addMessage('No meetings found.', 'bot');
-          }
-          return;
-        }
-        // Try to match a meeting title from voice
-        const foundMeeting = (this.meetings || []).find(m => lower.includes(m.title.toLowerCase()));
-        if (foundMeeting) {
-          let detailsHtml = `<b>Meeting Details:</b><br>`;
-          detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
-          detailsHtml += `<b>Date:</b> ${foundMeeting.date}<br>`;
-          detailsHtml += `<b>Time:</b> ${foundMeeting.time}<br>`;
-          if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
-          if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
-          if (foundMeeting.folder) {
-            let folderUrl = foundMeeting.folder;
-            if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
-              folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
-            }
-            detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
-          }
-          this.addMessage(detailsHtml, "bot", true);
-          // Optionally, set as selectedMeeting for management
-          this.selectedMeeting = foundMeeting;
-          // You can add more management actions here (e.g., edit, delete, etc.)
-          return;
-        }
-        // Otherwise, send as normal chat
-        this.sendMessage();
-=======
         this.autoResizeTextarea();
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
       };
-
-
 
       this.recognition.onerror = (event) => {
         console.error("Speech recognition error:", event.error);
@@ -261,10 +153,6 @@ class RefinedChatInterface extends ChatInterface {
 
       this.recognition.onend = () => {
         this.stopVoiceRecording();
-        if (this.voiceInputBtn) {
-          this.voiceInputBtn.classList.remove("bg-red-500");
-          this.voiceInputBtn.classList.add("bg-blue-500", "hover:bg-blue-600");
-        }
       };
     } else {
       if (this.voiceButton) this.voiceButton.style.display = "none";
@@ -280,38 +168,24 @@ class RefinedChatInterface extends ChatInterface {
       );
       return;
     }
+
     if (this.isRecording) {
       this.recognition.stop();
     } else {
       try {
-        // Visual feedback: change button color
-        if (this.voiceInputBtn) {
-          this.voiceInputBtn.classList.add("bg-red-500");
-          this.voiceInputBtn.classList.remove("bg-blue-500", "hover:bg-blue-600");
-        }
         this.recognition.start();
       } catch (error) {
         console.error("Error starting speech recognition:", error);
-<<<<<<< HEAD
-        alert("Could not start speech recognition. Please try again.");
-=======
         this.showNotification(
           "Could not start voice recognition. Please try again.",
           "error"
         );
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
       }
     }
   }
 
   stopVoiceRecording() {
     this.isRecording = false;
-<<<<<<< HEAD
-    if (this.voiceInputBtn) {
-      this.voiceInputBtn.classList.remove("bg-red-500");
-      this.voiceInputBtn.classList.add("bg-blue-500", "hover:bg-blue-600");
-    }
-=======
     this.voiceButton.classList.remove("recording");
     this.micIcon.classList.remove("hidden");
     this.stopIcon.classList.add("hidden");
@@ -499,43 +373,12 @@ class RefinedChatInterface extends ChatInterface {
         </div>
       </div>
     `;
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
   }
 
   async sendMessage() {
     const message = this.messageInput.value.trim();
     if (!message) return;
 
-<<<<<<< HEAD
-    // If message matches a meeting title (partial, case-insensitive)
-    if (this.meetings && this.meetings.length > 0) {
-      const lowerMsg = message.toLowerCase();
-      const foundMeeting = this.meetings.find(m => lowerMsg.includes(m.title.toLowerCase()));
-      if (foundMeeting) {
-        let detailsHtml = `<b>Meeting Details:</b><br>`;
-        detailsHtml += `<b>Title:</b> ${foundMeeting.title}<br>`;
-        detailsHtml += `<b>Date:</b> ${foundMeeting.date}<br>`;
-        detailsHtml += `<b>Time:</b> ${foundMeeting.time}<br>`;
-        if (foundMeeting.description) detailsHtml += `<b>Description:</b> ${foundMeeting.description}<br>`;
-        if (foundMeeting.link) detailsHtml += `<b>Link:</b> <a href="${foundMeeting.link}" target="_blank" style="color:#2563eb;text-decoration:underline;">${foundMeeting.link}</a><br>`;
-        if (foundMeeting.folder) {
-          let folderUrl = foundMeeting.folder;
-          if (!/^https:\/\/drive\.google\.com\/drive\/folders\//.test(folderUrl)) {
-            folderUrl = `https://drive.google.com/drive/folders/${folderUrl}`;
-          }
-          detailsHtml += `<b>Folder:</b> <a href="${folderUrl}" target="_blank" style="color:#2563eb;text-decoration:underline;">${folderUrl}</a><br>`;
-        }
-        this.addMessage(message, "user");
-        this.addMessage(detailsHtml, "bot", true);
-        this.selectedMeeting = foundMeeting;
-        this.messageInput.value = "";
-        this.messageInput.style.height = "auto";
-        return;
-      }
-    }
-
-=======
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
     this.addMessage(message, "user");
     this.messageInput.value = "";
     this.messageInput.style.height = "auto";
@@ -566,188 +409,10 @@ class RefinedChatInterface extends ChatInterface {
     }
   }
 
-<<<<<<< HEAD
-  async callAPI(message) {
-    const API_URL = "/chat_api/";
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message: message,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.response || data.message || "No response received";
-  }
-
-  getCSRFToken() {
-    // Get CSRF token from cookie or meta tag
-    const cookieValue = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("csrftoken="))
-      ?.split("=")[1];
-
-    if (cookieValue) return cookieValue;
-
-    // Fallback: get from meta tag
-    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-    return csrfToken ? csrfToken.value : "";
-  }
-
-  addMessage(text, type) {
-    // Robust: use .space-y-4 if present, else fallback to #chatMessages
-    let messagesContainer = this.chatMessages.querySelector(".space-y-4");
-    if (!messagesContainer) messagesContainer = this.chatMessages;
-    const messageWrapper = document.createElement("div");
-    let formattedText = text
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/`(.*?)`/g, "<code>$1</code>")
-      .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-      .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-      .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
-      .replace(/\n{3,}/g, (match) => "<br>".repeat(match.length))
-      .replace(/\n\n/g, "<br><br>")
-      .replace(/\n/g, "<br><br>");
-
-    if (type === "user") {
-      messageWrapper.className = "flex justify-end";
-      messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md user-message-glass text-white p-4 rounded-2xl rounded-br-sm user-message-slide border border-[#4FC1E9] border-opacity-30">
-          <div class="flex items-center justify-end space-x-2 mb-2">
-            <span class="text-xs text-white font-semibold opacity-80">You</span>
-            <div class="w-2 h-2 bg-white rounded-full opacity-80"></div>
-          </div>
-          ${formattedText}
-        </div>
-      `;
-      messagesContainer.appendChild(messageWrapper);
-      this.scrollToBottom();
-    } else if (type === "error") {
-      messageWrapper.className = "flex justify-start";
-      messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md bg-red-900 bg-opacity-50 border border-red-500 text-red-300 p-4 rounded-2xl rounded-bl-sm message-entrance">
-          <div class="flex items-center space-x-2 mb-2">
-            <div class="w-2 h-2 bg-red-400 rounded-full"></div>
-            <span class="text-xs text-red-400 font-semibold">Error</span>
-          </div>
-          ${text}
-        </div>
-      `;
-      messagesContainer.appendChild(messageWrapper);
-      this.scrollToBottom();
-    } else if (type === "bot-typing") {
-      // Add a visible typing bubble for AI
-      messageWrapper.className = "flex justify-start ai-typing-bubble";
-      messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md ai-message-glass text-white p-4 rounded-2xl rounded-bl-sm border border-[#4FC1E9] border-opacity-30 opacity-60 italic">
-          <span>AI is typing...</span>
-        </div>
-      `;
-      messagesContainer.appendChild(messageWrapper);
-      this.scrollToBottom();
-      return messageWrapper;
-    } else if (type === "bot") {
-      // Only remove typing bubbles, not all AI messages
-      const existingTyping = messagesContainer.querySelectorAll('.ai-typing-bubble');
-      existingTyping.forEach(el => {
-        if (el.parentNode) el.parentNode.removeChild(el);
-      });
-      messageWrapper.className = "flex justify-start";
-      messageWrapper.innerHTML = `
-        <div class="max-w-xs lg:max-w-md ai-message-glass text-white p-4 rounded-2xl rounded-bl-sm ai-message-slide border border-[#4FC1E9] border-opacity-30">
-          <div class="flex items-center space-x-2 mb-2">
-            <div class="w-2 h-2 bg-[#4FC1E9] rounded-full"></div>
-            <span class="text-xs text-[#4FC1E9] font-semibold">AI</span>
-          </div>
-          <span class="ai-animated-reply"></span>
-        </div>
-      `;
-      messagesContainer.appendChild(messageWrapper);
-      this.scrollToBottom();
-      // Animate the reply
-      const replySpan = messageWrapper.querySelector('.ai-animated-reply');
-      let i = 0;
-      function typeLetter() {
-        if (i <= formattedText.length) {
-          replySpan.innerHTML = formattedText.slice(0, i);
-          i++;
-          messageWrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
-          setTimeout(typeLetter, 18); // speed of typing
-        }
-      }
-      typeLetter();
-      // Text-to-Speech if enabled
-      if (this.speechRepliesEnabled && 'speechSynthesis' in window) {
-        const utter = new window.SpeechSynthesisUtterance(text.replace(/<[^>]+>/g, ''));
-        utter.lang = 'en-US';
-        window.speechSynthesis.speak(utter);
-      }
-    }
-  }
-
-  showTyping() {
-    // No-op for now
-  }
-  hideTyping() {
-    // No-op for now
-  }
-=======
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
   scrollToBottom() {
     setTimeout(() => {
       this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }, 100);
-  }
-
-  async fetchMeetings() {
-    try {
-      const response = await fetch("/showmeeting/");
-      const data = await response.json();
-      this.meetings = data.events || [];
-      this.populateMeetingDropdown();
-    } catch (e) {
-      if (this.chatMeetingSelect) {
-        this.chatMeetingSelect.innerHTML = '<option value="">Failed to load meetings</option>';
-      }
-    }
-  }
-
-  populateMeetingDropdown() {
-    if (!this.chatMeetingSelect) return;
-    this.chatMeetingSelect.innerHTML = '<option value="">Select a meeting...</option>';
-    this.meetings.forEach(m => {
-      const option = document.createElement('option');
-      option.value = m.id;
-      option.textContent = `${m.title} (${m.date} ${m.time})`;
-      this.chatMeetingSelect.appendChild(option);
-    });
-  }
-
-  async summarizeSelectedMeeting() {
-    if (!this.selectedMeeting) {
-      this.addMessage("Please select a meeting to summarize.", "error");
-      return;
-    }
-    const meeting = this.selectedMeeting;
-    const summaryPrompt = `Summarize the following meeting in a professional, point-by-point format.\n\nMeeting Details:\nTitle: ${meeting.title}\nDate: ${meeting.date}\nTime: ${meeting.time}\nDescription: ${meeting.description || ''}\nLink: ${meeting.link || ''}\nFolder: ${meeting.folder || ''}\n\nPlease provide the summary as a numbered or bulleted list of key points.`;
-    this.addMessage("Summarize the selected meeting.", "user");
-    // Show typing bubble for AI
-    const typingBubble = this.addMessage('', 'bot-typing');
-    try {
-      const response = await this.callAPI(summaryPrompt);
-      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
-      this.addMessage(response, "bot");
-    } catch (error) {
-      if (typingBubble && typingBubble.parentNode) typingBubble.parentNode.removeChild(typingBubble);
-      this.addMessage("Sorry, I couldn't summarize the meeting. Please try again.", "error");
-    }
   }
 }
 

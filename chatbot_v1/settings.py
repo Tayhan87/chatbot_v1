@@ -15,7 +15,7 @@ ALLOWED_HOSTS = []
 
 # Application definition
 
-SITE_ID = 2
+SITE_ID = 1
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -148,13 +148,10 @@ USE_I18N = True
 
 USE_TZ = True
 
-<<<<<<< HEAD
-=======
 GEMINI_API_KEY = 'AIzaSyDYrY-2iOMeLPD6oTTupY4WJeffZQXc1f8'
 
 GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
 
->>>>>>> b16fb3438c1951f77da07364414d01450b4256c8
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -186,7 +183,7 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 #pip install python-docx PyPDF2
 
-GOOGLE_API_KEY = "AIzaSyCl4oE3hkgeZoWIkibMrZKRzAm-LrENgks"
+
 
 CORS_ALLOWED_ORIGINS = [ #added by sumon
     "chrome-extension://jdlinkojhobddhgoheiocikiblabdibn",
@@ -197,6 +194,20 @@ SESSION_COOKIE_SAMESITE = 'None'#added by sumon
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
 
 
 

@@ -32,6 +32,7 @@ import logging
 import math
 import os
 import ssl
+import random
 import sys
 import threading
 import time
@@ -81,6 +82,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger('google_genai._api_client')
 CHUNK_SIZE = 8 * 1024 * 1024  # 8 MB chunk size
+READ_BUFFER_SIZE = 2**20
 MAX_RETRY_COUNT = 3
 INITIAL_RETRY_DELAY = 1  # second
 DELAY_MULTIPLIER = 2
@@ -363,7 +365,7 @@ _RETRY_HTTP_STATUS_CODES = (
 )
 
 
-def _retry_args(options: Optional[HttpRetryOptions]) -> dict[str, Any]:
+def _retry_args(options: Optional[HttpRetryOptions]) -> _common.StringDict:
   """Returns the retry args for the given http retry options.
 
   Args:
@@ -533,17 +535,30 @@ class BaseApiClient:
             + ' precedence over the API key from the environment variables.'
         )
         self.api_key = None
-      if not self.project and not self.api_key:
+
+      # Skip fetching project from ADC if base url is provided in http options.
+      if (
+          not self.project
+          and not self.api_key
+          and not validated_http_options.base_url
+      ):
         credentials, self.project = _load_auth(project=None)
         if not self._credentials:
           self._credentials = credentials
-      if not ((self.project and self.location) or self.api_key):
+
+      has_sufficient_auth = (self.project and self.location) or self.api_key
+
+      if (not has_sufficient_auth and not validated_http_options.base_url):
+        # Skip sufficient auth check if base url is provided in http options.
         raise ValueError(
             'Project and location or API key must be set when using the Vertex '
             'AI API.'
         )
       if self.api_key or self.location == 'global':
         self._http_options.base_url = f'https://aiplatform.googleapis.com/'
+      elif validated_http_options.base_url and not has_sufficient_auth:
+        # Avoid setting default base url and api version if base_url provided.
+        self._http_options.base_url = validated_http_options.base_url
       else:
         self._http_options.base_url = (
             f'https://{self.location}-aiplatform.googleapis.com/'
@@ -592,7 +607,7 @@ class BaseApiClient:
   @staticmethod
   def _ensure_httpx_ssl_ctx(
       options: HttpOptions,
-  ) -> Tuple[dict[str, Any], dict[str, Any]]:
+  ) -> Tuple[_common.StringDict, _common.StringDict]:
     """Ensures the SSL context is present in the HTTPX client args.
 
     Creates a default SSL context if one is not provided.
@@ -626,9 +641,9 @@ class BaseApiClient:
       )
 
     def _maybe_set(
-        args: Optional[dict[str, Any]],
+        args: Optional[_common.StringDict],
         ctx: ssl.SSLContext,
-    ) -> dict[str, Any]:
+    ) -> _common.StringDict:
       """Sets the SSL context in the client args if not set.
 
       Does not override the SSL context if it is already set.
@@ -656,7 +671,7 @@ class BaseApiClient:
     )
 
   @staticmethod
-  def _ensure_aiohttp_ssl_ctx(options: HttpOptions) -> dict[str, Any]:
+  def _ensure_aiohttp_ssl_ctx(options: HttpOptions) -> _common.StringDict:
     """Ensures the SSL context is present in the async client args.
 
     Creates a default SSL context if one is not provided.
@@ -684,9 +699,9 @@ class BaseApiClient:
       )
 
     def _maybe_set(
-        args: Optional[dict[str, Any]],
+        args: Optional[_common.StringDict],
         ctx: ssl.SSLContext,
-    ) -> dict[str, Any]:
+    ) -> _common.StringDict:
       """Sets the SSL context in the client args if not set.
 
       Does not override the SSL context if it is already set.
@@ -714,7 +729,7 @@ class BaseApiClient:
     return _maybe_set(async_args, ctx)
 
   @staticmethod
-  def _ensure_websocket_ssl_ctx(options: HttpOptions) -> dict[str, Any]:
+  def _ensure_websocket_ssl_ctx(options: HttpOptions) -> _common.StringDict:
     """Ensures the SSL context is present in the async client args.
 
     Creates a default SSL context if one is not provided.
@@ -742,9 +757,9 @@ class BaseApiClient:
       )
 
     def _maybe_set(
-        args: Optional[dict[str, Any]],
+        args: Optional[_common.StringDict],
         ctx: ssl.SSLContext,
-    ) -> dict[str, Any]:
+    ) -> _common.StringDict:
       """Sets the SSL context in the client args if not set.
 
       Does not override the SSL context if it is already set.
@@ -864,7 +879,7 @@ class BaseApiClient:
         self.vertexai
         and not path.startswith('projects/')
         and not query_vertex_base_models
-        and not self.api_key
+        and (self.project or self.location)
     ):
       path = f'projects/{self.project}/locations/{self.location}/' + path
 
@@ -920,7 +935,8 @@ class BaseApiClient:
       stream: bool = False,
   ) -> HttpResponse:
     data: Optional[Union[str, bytes]] = None
-    if self.vertexai and not self.api_key:
+    # If using proj/location, fetch ADC
+    if self.vertexai and (self.project or self.location):
       http_request.headers['Authorization'] = f'Bearer {self._access_token()}'
       if self._credentials and self._credentials.quota_project_id:
         http_request.headers['x-goog-user-project'] = (
@@ -963,8 +979,21 @@ class BaseApiClient:
   def _request(
       self,
       http_request: HttpRequest,
+      http_options: Optional[HttpOptionsOrDict] = None,
       stream: bool = False,
   ) -> HttpResponse:
+    if http_options:
+      parameter_model = (
+          HttpOptions(**http_options)
+          if isinstance(http_options, dict)
+          else http_options
+      )
+      # Support per request retry options.
+      if parameter_model.retry_options:
+        retry_kwargs = _retry_args(parameter_model.retry_options)
+        retry = tenacity.Retrying(**retry_kwargs)
+        return retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
+
     return self._retry(self._request_once, http_request, stream)  # type: ignore[no-any-return]
 
   async def _async_request_once(
@@ -972,7 +1001,8 @@ class BaseApiClient:
   ) -> HttpResponse:
     data: Optional[Union[str, bytes]] = None
 
-    if self.vertexai and not self.api_key:
+    # If using proj/location, fetch ADC
+    if self.vertexai and (self.project or self.location):
       http_request.headers['Authorization'] = (
           f'Bearer {await self._async_access_token()}'
       )
@@ -993,15 +1023,43 @@ class BaseApiClient:
         session = aiohttp.ClientSession(
             headers=http_request.headers,
             trust_env=True,
+            read_bufsize=READ_BUFFER_SIZE,
         )
-        response = await session.request(
-            method=http_request.method,
-            url=http_request.url,
-            headers=http_request.headers,
-            data=data,
-            timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
-            **self._async_client_session_request_args,
-        )
+        try:
+          response = await session.request(
+              method=http_request.method,
+              url=http_request.url,
+              headers=http_request.headers,
+              data=data,
+              timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
+              **self._async_client_session_request_args,
+          )
+        except (
+            aiohttp.ClientConnectorError,
+            aiohttp.ClientConnectorDNSError,
+            aiohttp.ClientOSError,
+            aiohttp.ServerDisconnectedError,
+        ) as e:
+          await asyncio.sleep(1 + random.randint(0, 9))
+          logger.info('Retrying due to aiohttp error: %s' % e)
+          # Retrieve the SSL context from the session.
+          self._async_client_session_request_args = (
+              self._ensure_aiohttp_ssl_ctx(self._http_options)
+          )
+          # Instantiate a new session with the updated SSL context.
+          session = aiohttp.ClientSession(
+              headers=http_request.headers,
+              trust_env=True,
+              read_bufsize=READ_BUFFER_SIZE,
+          )
+          response = await session.request(
+              method=http_request.method,
+              url=http_request.url,
+              headers=http_request.headers,
+              data=data,
+              timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
+              **self._async_client_session_request_args,
+          )
 
         await errors.APIError.raise_for_async_response(response)
         return HttpResponse(response.headers, response, session=session)
@@ -1022,20 +1080,50 @@ class BaseApiClient:
         return HttpResponse(client_response.headers, client_response)
     else:
       if self._use_aiohttp():
-        async with aiohttp.ClientSession(
-            headers=http_request.headers,
-            trust_env=True,
-        ) as session:
-          response = await session.request(
-              method=http_request.method,
-              url=http_request.url,
+        try:
+          async with aiohttp.ClientSession(
               headers=http_request.headers,
-              data=data,
-              timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
-              **self._async_client_session_request_args,
+              trust_env=True,
+              read_bufsize=READ_BUFFER_SIZE,
+          ) as session:
+            response = await session.request(
+                method=http_request.method,
+                url=http_request.url,
+                headers=http_request.headers,
+                data=data,
+                timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
+                **self._async_client_session_request_args,
+            )
+            await errors.APIError.raise_for_async_response(response)
+            return HttpResponse(response.headers, [await response.text()])
+        except (
+            aiohttp.ClientConnectorError,
+            aiohttp.ClientConnectorDNSError,
+            aiohttp.ClientOSError,
+            aiohttp.ServerDisconnectedError,
+        ) as e:
+          await asyncio.sleep(1 + random.randint(0, 9))
+          logger.info('Retrying due to aiohttp error: %s' % e)
+          # Retrieve the SSL context from the session.
+          self._async_client_session_request_args = (
+              self._ensure_aiohttp_ssl_ctx(self._http_options)
           )
-          await errors.APIError.raise_for_async_response(response)
-          return HttpResponse(response.headers, [await response.text()])
+          # Instantiate a new session with the updated SSL context.
+          async with aiohttp.ClientSession(
+              headers=http_request.headers,
+              trust_env=True,
+              read_bufsize=READ_BUFFER_SIZE,
+          ) as session:
+            response = await session.request(
+                method=http_request.method,
+                url=http_request.url,
+                headers=http_request.headers,
+                data=data,
+                timeout=aiohttp.ClientTimeout(connect=http_request.timeout),
+                **self._async_client_session_request_args,
+            )
+            await errors.APIError.raise_for_async_response(response)
+            return HttpResponse(response.headers, [await response.text()])
       else:
         # aiohttp is not available. Fall back to httpx.
         client_response = await self._async_httpx_client.request(
@@ -1051,13 +1139,25 @@ class BaseApiClient:
   async def _async_request(
       self,
       http_request: HttpRequest,
+      http_options: Optional[HttpOptionsOrDict] = None,
       stream: bool = False,
   ) -> HttpResponse:
+    if http_options:
+      parameter_model = (
+          HttpOptions(**http_options)
+          if isinstance(http_options, dict)
+          else http_options
+      )
+      # Support per request retry options.
+      if parameter_model.retry_options:
+        retry_kwargs = _retry_args(parameter_model.retry_options)
+        retry = tenacity.AsyncRetrying(**retry_kwargs)
+        return await retry(self._async_request_once, http_request, stream)  # type: ignore[no-any-return]
     return await self._async_retry(  # type: ignore[no-any-return]
         self._async_request_once, http_request, stream
     )
 
-  def get_read_only_http_options(self) -> dict[str, Any]:
+  def get_read_only_http_options(self) -> _common.StringDict:
     if isinstance(self._http_options, BaseModel):
       copied = self._http_options.model_dump()
     else:
@@ -1074,7 +1174,7 @@ class BaseApiClient:
     http_request = self._build_request(
         http_method, path, request_dict, http_options
     )
-    response = self._request(http_request, stream=False)
+    response = self._request(http_request, http_options, stream=False)
     response_body = (
         response.response_stream[0] if response.response_stream else ''
     )
@@ -1091,7 +1191,7 @@ class BaseApiClient:
         http_method, path, request_dict, http_options
     )
 
-    session_response = self._request(http_request, stream=True)
+    session_response = self._request(http_request, http_options, stream=True)
     for chunk in session_response.segments():
       yield SdkHttpResponse(
           headers=session_response.headers, body=json.dumps(chunk)
@@ -1108,7 +1208,9 @@ class BaseApiClient:
         http_method, path, request_dict, http_options
     )
 
-    result = await self._async_request(http_request=http_request, stream=False)
+    result = await self._async_request(
+        http_request=http_request, http_options=http_options, stream=False
+    )
     response_body = result.response_stream[0] if result.response_stream else ''
     return SdkHttpResponse(headers=result.headers, body=response_body)
 
@@ -1340,6 +1442,7 @@ class BaseApiClient:
       async with aiohttp.ClientSession(
           headers=self._http_options.headers,
           trust_env=True,
+          read_bufsize=READ_BUFFER_SIZE,
       ) as session:
         while True:
           if isinstance(file, io.IOBase):
@@ -1523,6 +1626,7 @@ class BaseApiClient:
       async with aiohttp.ClientSession(
           headers=http_request.headers,
           trust_env=True,
+          read_bufsize=READ_BUFFER_SIZE,
       ) as session:
         response = await session.request(
             method=http_request.method,

@@ -10,11 +10,15 @@
   },
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "scripting",
+    "activeTab",
+    "tabCapture"
   ],
   "host_permissions": [
     "http://localhost:8000/*",
-    "https://your-backend-domain.com/*"
+    "https://your-backend-domain.com/*",
+    "https://meet.google.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -30,8 +34,12 @@
   "options_page": "options.html",
   "content_scripts": [
     {
-      "matches": ["http://127.0.0.1:8000/chatbot/*"],
-      "js": ["content.js"]
+      "matches": [
+        "http://127.0.0.1:8000/chatbot/*",
+        "https://meet.google.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
     }
   ]
 } 

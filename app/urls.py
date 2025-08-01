@@ -2,7 +2,7 @@ from django.urls import path
 from app import views
 
 urlpatterns = [
-     path('',views.index, name='index'),
+    path('',views.index, name='index'),
     path('chat_api/', views.chat_api, name='chat_api'),
     path('login/',views.loginpage,name='login_page'),
     path("signout/",views.signout,name='signout'),
@@ -22,4 +22,6 @@ urlpatterns = [
     path('update_meeting_folder/', views.update_meeting_folder, name='update_meeting_folder'),
     path('upload_folder/', views.upload_folder, name='upload_folder'),
     path('api/userinfo/', views.userinfo, name='userinfo'),#added by sumon
+    path('chatbot/ask/', views.ask_question, name='ask_question'),
+    path('chatbot/summarize/', views.summarize_meeting, name='summarize_meeting'),
 ]
