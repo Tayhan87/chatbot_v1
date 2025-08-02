@@ -189,30 +189,59 @@ async function handleAssistantRequest(request, tabId, sendResponse) {
       const transcript = tabData.transcript || [];
       const recentTranscript = transcript.slice(-10); // Last 10 entries
       
-      // Format transcript with speaker information
-      const formattedTranscript = recentTranscript.map(entry => 
-        `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`
-      ).join('\n');
+      // Enhanced detection for AI-powered analysis requests
+      const clarificationKeywords = ['clarify', 'explain', 'what does', 'mean by', 'elaborate', 'detail', 'analysis', 'insight', 'understand', 'context', 'help me understand'];
+      const realtimeKeywords = ['what', 'who', 'current', 'happening', 'speaking', 'topic', 'summary', 'now', 'ongoing'];
       
-      // Forward to Django backend
+      const isClarificationRequest = clarificationKeywords.some(keyword => 
+        data.question.toLowerCase().includes(keyword)
+      );
+      const isRealtimeQuestion = realtimeKeywords.some(keyword => 
+        data.question.toLowerCase().includes(keyword)
+      );
+      
+      let response;
       const requestStart = performance.now();
-      const response = await fetch('http://127.0.0.1:8000/chatbot/ask/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: data.question,
-          meeting_id: tabData.meeting.id,
-          folder: tabData.meeting.folder,
-          transcript: formattedTranscript, // Send formatted transcript with speakers
-          full_conversation: tabData.transcript, // Send complete conversation data
-          meeting_title: tabData.meeting.title,
-          speakers: Array.from(tabData.speakers.keys()), // Send speaker list
-          audio_capture_enabled: tabData.audioCaptureEnabled,
-          conversation_context: generateConversationContext(tabData.transcript)
-        })
-      });
+      
+      // Use AI-enhanced analysis for clarification requests or complex questions
+      if (isClarificationRequest || (isRealtimeQuestion && transcript.length > 5)) {
+        console.log('Using AI-enhanced real-time conversation analysis...');
+        response = await fetch('http://127.0.0.1:8000/chatbot/realtime-analysis/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: data.question,
+            conversation: transcript, // Send full conversation data from beginning to end
+            current_speaker: transcript.length > 0 ? transcript[transcript.length - 1].speaker : '',
+            meeting_id: tabData.meeting.id
+          })
+        });
+      } else {
+        // Use regular ask endpoint for other questions
+        const formattedTranscript = recentTranscript.map(entry => 
+          `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`
+        ).join('\n');
+        
+        response = await fetch('http://127.0.0.1:8000/chatbot/ask/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            question: data.question,
+            meeting_id: tabData.meeting.id,
+            folder: tabData.meeting.folder,
+            transcript: formattedTranscript, // Send formatted transcript with speakers
+            full_conversation: tabData.transcript, // Send complete conversation data
+            meeting_title: tabData.meeting.title,
+            speakers: Array.from(tabData.speakers.keys()), // Send speaker list
+            audio_capture_enabled: tabData.audioCaptureEnabled,
+            conversation_context: generateConversationContext(tabData.transcript)
+          })
+        });
+      }
 
       const requestTime = performance.now() - requestStart;
       console.log(`Django request took: ${requestTime.toFixed(2)}ms`);
@@ -221,14 +250,29 @@ async function handleAssistantRequest(request, tabId, sendResponse) {
       const totalTime = performance.now() - startTime;
       console.log(`Total ask question time: ${totalTime.toFixed(2)}ms`);
 
+      // Handle response from both endpoints
+      let responseData;
+      if (isClarificationRequest || (isRealtimeQuestion && transcript.length > 5)) {
+        // AI-enhanced real-time analysis response
+        responseData = {
+          answer: result.answer,
+          analysis: result.analysis,
+          timestamp: result.timestamp,
+          ai_enhanced: result.ai_enhanced || false
+        };
+      } else {
+        // Regular ask response
+        responseData = result;
+      }
+
       // Send response back to content script
       chrome.tabs.sendMessage(tabId, {
         type: 'ASSISTANT_RESPONSE',
-        data: result
+        data: responseData
       });
 
       // Also send response to the original request
-      sendResponse({ data: result });
+      sendResponse({ data: responseData });
     }
 
     else if (type === 'SUMMARIZE') {
@@ -299,7 +343,12 @@ async function handleAssistantRequest(request, tabId, sendResponse) {
 // Generate conversation context for better AI responses
 function generateConversationContext(transcript) {
   if (!transcript || transcript.length === 0) {
-    return "No conversation data available.";
+    return {
+      current_topic: "No current topic",
+      recent_speakers: [],
+      conversation_flow: [],
+      total_entries: 0
+    };
   }
 
   const recentEntries = transcript.slice(-10); // Last 10 entries
@@ -320,7 +369,15 @@ function generateConversationContext(transcript) {
 // Generate conversation summary
 function generateConversationSummary(transcript) {
   if (!transcript || transcript.length === 0) {
-    return "No conversation to summarize.";
+    return {
+      total_speakers: 0,
+      total_entries: 0,
+      total_words: 0,
+      estimated_duration: 0,
+      main_speakers: [],
+      conversation_start: null,
+      conversation_end: null
+    };
   }
 
   const speakers = [...new Set(transcript.map(entry => entry.speaker))];

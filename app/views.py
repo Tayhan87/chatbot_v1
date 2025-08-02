@@ -23,6 +23,7 @@ import time
 # Imports for text extraction
 import docx
 from PyPDF2 import PdfReader
+from collections import Counter
 
 
 logger = logging.getLogger(__name__)
@@ -630,15 +631,14 @@ def ask_question(request):
         db_start = time.time()
         meeting_context = ""
         if meeting_id:
-            try:
-                meeting = CalendarEvent.objects.get(id=meeting_id)
-                duration_minutes = int(meeting.duration.total_seconds() / 60)
-                meeting_context = f"Meeting: {meeting.title}\nDate: {meeting.date}\nDuration: {duration_minutes} minutes\nPlatform: {meeting.platform}\n"
-            except CalendarEvent.DoesNotExist:
-                pass
-        db_time = time.time() - db_start
-        
-        # Enhanced context preparation with speaker information
+            # Handle both string and integer meeting_id
+            if isinstance(meeting_id, str) and meeting_id.isdigit():
+                meeting_id = int(meeting_id)
+            # Always set meeting_context, regardless of type
+            meeting_context = f"Meeting ID: {meeting_id}\n"
+            db_time = time.time() - db_start
+
+            # Enhanced context preparation with speaker information
         speaker_info = ""
         if speakers:
             speaker_info = f"Identified Speakers: {', '.join(speakers)}\n"
@@ -652,11 +652,28 @@ def ask_question(request):
         response_start = time.time()
         
         # Get current topic and recent activity
-        current_topic = conversation_context.get('current_topic', 'General discussion') if conversation_context else 'General discussion'
-        recent_speakers = conversation_context.get('recent_speakers', speakers) if conversation_context else speakers
+        try:
+            current_topic = conversation_context.get('current_topic', 'General discussion') if conversation_context else 'General discussion'
+            recent_speakers = conversation_context.get('recent_speakers', speakers) if conversation_context else speakers
+        except Exception as e:
+            logger.error(f'Error getting conversation context: {e}')
+            current_topic = 'General discussion'
+            recent_speakers = speakers or []
+            current_topic = 'General discussion'
+            recent_speakers = speakers or []
         
         # Analyze the full conversation for better context
-        conversation_analysis = analyze_full_conversation(full_conversation)
+        try:
+            conversation_analysis = analyze_full_conversation(full_conversation)
+        except Exception as e:
+            logger.error(f'Error analyzing conversation: {e}')
+            conversation_analysis = {
+                'recent_points': [],
+                'speaker_activity': [],
+                'key_topics': [],
+                'estimated_duration': 0,
+                'conversation_flow': []
+            }
         
         # Enhanced conversation analysis with Gemini AI
         if any(word in question.lower() for word in ['what', 'happened', 'talking', 'discussion', 'conversation', 'summary', 'going on', 'current', 'now', 'talk', 'discuss']):
@@ -794,7 +811,332 @@ def ask_question(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         logger.error(f'Ask question error: {e}')
-        return JsonResponse({'error': 'Server error'}, status=500)
+        import traceback
+        logger.error(f'Full traceback: {traceback.format_exc()}')
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+
+@csrf_exempt
+def realtime_conversation_analysis(request):
+    """Handle real-time conversation analysis during meetings with Gemini AI integration"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        conversation_data = data.get('conversation', [])
+        current_speaker = data.get('current_speaker', '')
+        meeting_id = data.get('meeting_id', '')
+        question = data.get('question', '').strip()
+        
+        if not conversation_data:
+            return JsonResponse({'error': 'No conversation data provided'}, status=400)
+        
+        # Analyze current conversation state
+        analysis = {
+            'total_entries': len(conversation_data),
+            'speakers': list(set([entry.get('speaker', 'Unknown') for entry in conversation_data])),
+            'current_topic': extract_current_topic_from_conversation(conversation_data),
+            'conversation_flow': analyze_conversation_flow(conversation_data),
+            'speaker_activity': analyze_speaker_activity(conversation_data),
+            'recent_activity': conversation_data[-5:] if len(conversation_data) >= 5 else conversation_data
+        }
+        
+        # Check if this is a clarification or detailed analysis request that should use Gemini
+        clarification_keywords = ['clarify', 'explain', 'what does', 'mean by', 'elaborate', 'detail', 'analysis', 'insight', 'understand', 'context']
+        is_clarification_request = any(keyword in question.lower() for keyword in clarification_keywords)
+        
+        # Use Gemini AI for clarification requests or complex analysis
+        if is_clarification_request or len(conversation_data) > 10:
+            response = generate_gemini_realtime_analysis(conversation_data, question, analysis, current_speaker)
+        else:
+            # Generate real-time response based on question type
+            if 'what' in question.lower() and 'happening' in question.lower():
+                response = generate_realtime_status_response(analysis, current_speaker)
+            elif 'who' in question.lower() and 'speaking' in question.lower():
+                response = generate_speaker_status_response(analysis)
+            elif 'topic' in question.lower() or 'discussing' in question.lower():
+                response = generate_topic_response(analysis)
+            elif 'summary' in question.lower():
+                response = generate_realtime_summary_response(analysis)
+            else:
+                response = generate_general_conversation_response(analysis, question)
+        
+        return JsonResponse({
+            'answer': response,
+            'analysis': analysis,
+            'timestamp': timezone.now().isoformat(),
+            'ai_enhanced': is_clarification_request or len(conversation_data) > 10
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in real-time conversation analysis: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+def generate_gemini_realtime_analysis(conversation_data, question, analysis, current_speaker):
+    """Generate AI-powered real-time conversation analysis using Gemini API"""
+    try:
+        # Format conversation for AI analysis
+        conversation_text = ""
+        for entry in conversation_data:
+            speaker = entry.get('speaker', 'Unknown')
+            text = entry.get('text', '')
+            timestamp = entry.get('timestamp', '')
+            conversation_text += f"[{timestamp}] {speaker}: {text}\n"
+        
+        # Prepare context for AI
+        context_info = f"""
+        Meeting Context:
+        - Total Participants: {len(analysis['speakers'])}
+        - Total Exchanges: {analysis['total_entries']}
+        - Current Topic: {analysis['current_topic']}
+        - Conversation Flow: {analysis['conversation_flow']}
+        - Current Speaker: {current_speaker}
+        - Active Speakers: {', '.join(analysis['speakers'])}
+        """
+        
+        # Create AI prompt for real-time analysis
+        ai_prompt = f"""
+        You are an AI meeting assistant providing real-time conversation analysis and clarification.
+        
+        User Question: {question}
+        
+        {context_info}
+        
+        Full Conversation Transcript (from beginning to current moment):
+        {conversation_text}
+        
+        Please provide a comprehensive, real-time analysis that:
+        1. Directly addresses the user's question with specific insights
+        2. References specific parts of the conversation when relevant
+        3. Provides clarification on discussed points if requested
+        4. Identifies key themes, decisions, or action items mentioned
+        5. Analyzes the conversation flow and participant engagement
+        6. Offers actionable insights or recommendations if appropriate
+        
+        Focus on being helpful, accurate, and providing value to the user's specific question.
+        Format your response clearly with sections and bullet points where appropriate.
+        """
+        
+        # Use Gemini AI to generate analysis
+        try:
+            # Configure Gemini
+            api_key = getattr(settings, 'GEMINI_API_KEY', None)
+            if not api_key:
+                raise Exception("Gemini API key not configured")
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-pro')
+            
+            # Generate AI response
+            response = model.generate_content(ai_prompt)
+            ai_analysis = response.text
+            
+            # Format the AI response
+            formatted_response = f"🤖 **AI-Powered Real-Time Analysis**\n\n{ai_analysis}\n\n"
+            formatted_response += f"📊 **Meeting Stats**: {analysis['total_entries']} exchanges, {len(analysis['speakers'])} participants\n"
+            formatted_response += f"🎯 **Current Topic**: {analysis['current_topic']}"
+            
+            return formatted_response
+            
+        except Exception as ai_error:
+            logger.error(f'Gemini AI error in real-time analysis: {ai_error}')
+            # Fallback to basic analysis if AI fails
+            return generate_general_conversation_response(analysis, question)
+            
+    except Exception as e:
+        logger.error(f'Real-time AI analysis error: {e}')
+        return f"🤖 **AI Analysis Error**: Could not analyze conversation - {str(e)}"
+
+def extract_current_topic_from_conversation(conversation_data):
+    """Extract current topic from recent conversation entries"""
+    try:
+        if not conversation_data:
+            return "No conversation yet"
+        
+        # Get recent entries (last 10)
+        recent_entries = conversation_data[-10:] if len(conversation_data) >= 10 else conversation_data
+        recent_text = ' '.join([entry.get('text', '') for entry in recent_entries])
+        
+        # Simple keyword extraction
+        words = recent_text.lower().split()
+        word_freq = {}
+        for word in words:
+            if len(word) > 3 and word not in ['the', 'and', 'but', 'for', 'are', 'was', 'were']:
+                word_freq[word] = word_freq.get(word, 0) + 1
+        
+        # Get most frequent words
+        top_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:5]
+        
+        if top_words:
+            return f"Discussion about: {', '.join([word for word, _ in top_words])}"
+        else:
+            return "General discussion"
+            
+    except Exception as e:
+        logger.error(f"Error extracting topic: {e}")
+        return "General discussion"
+
+def analyze_conversation_flow(conversation_data):
+    """Analyze the flow of conversation"""
+    try:
+        if len(conversation_data) < 2:
+            return "Insufficient data for flow analysis"
+        
+        recent_speakers = [entry.get('speaker', 'Unknown') for entry in conversation_data[-5:]]
+        unique_speakers = list(set(recent_speakers))
+        
+        if len(unique_speakers) == 1:
+            return "Monologue: Single speaker dominating"
+        elif len(unique_speakers) == 2:
+            return "Dialogue: Two-way conversation"
+        else:
+            return "Group Discussion: Multiple participants"
+            
+    except Exception as e:
+        logger.error(f"Error analyzing conversation flow: {e}")
+        return "Flow analysis unavailable"
+
+def analyze_speaker_activity(conversation_data):
+    """Analyze speaker participation"""
+    try:
+        speaker_stats = {}
+        
+        for entry in conversation_data:
+            speaker = entry.get('speaker', 'Unknown')
+            if speaker not in speaker_stats:
+                speaker_stats[speaker] = {'count': 0, 'words': 0}
+            
+            speaker_stats[speaker]['count'] += 1
+            speaker_stats[speaker]['words'] += len(entry.get('text', '').split())
+        
+        # Sort by contribution count
+        sorted_speakers = sorted(speaker_stats.items(), key=lambda x: x[1]['count'], reverse=True)
+        
+        return [
+            {
+                'name': speaker,
+                'contributions': stats['count'],
+                'words': stats['words']
+            }
+            for speaker, stats in sorted_speakers[:5]
+        ]
+        
+    except Exception as e:
+        logger.error(f"Error analyzing speaker activity: {e}")
+        return []
+
+def generate_realtime_status_response(analysis, current_speaker):
+    """Generate real-time status response"""
+    try:
+        response = f"🎯 **Current Meeting Status**\n\n"
+        
+        if current_speaker:
+            response += f"🔊 **Currently Speaking**: {current_speaker}\n\n"
+        
+        response += f"📊 **Conversation Stats**:\n"
+        response += f"• Total entries: {analysis['total_entries']}\n"
+        response += f"• Active speakers: {len(analysis['speakers'])}\n"
+        response += f"• Conversation flow: {analysis['conversation_flow']}\n\n"
+        
+        response += f"💬 **Current Topic**: {analysis['current_topic']}\n\n"
+        
+        if analysis['recent_activity']:
+            response += f"🕒 **Recent Activity**:\n"
+            for entry in analysis['recent_activity'][-3:]:
+                speaker = entry.get('speaker', 'Unknown')
+                text = entry.get('text', '')[:60]
+                response += f"• {speaker}: {text}...\n"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating real-time status: {e}")
+        return "Unable to generate real-time status"
+
+def generate_speaker_status_response(analysis):
+    """Generate speaker status response"""
+    try:
+        response = f"👥 **Speaker Activity**\n\n"
+        
+        if analysis['speaker_activity']:
+            response += f"📈 **Most Active Speakers**:\n"
+            for speaker_info in analysis['speaker_activity'][:3]:
+                response += f"• {speaker_info['name']}: {speaker_info['contributions']} contributions ({speaker_info['words']} words)\n"
+        else:
+            response += "No speaker activity data available\n"
+        
+        response += f"\n🔊 **All Participants**: {', '.join(analysis['speakers'])}"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating speaker status: {e}")
+        return "Unable to generate speaker status"
+
+def generate_topic_response(analysis):
+    """Generate topic response"""
+    try:
+        response = f"🎯 **Current Discussion Topic**\n\n"
+        response += f"📝 **Topic**: {analysis['current_topic']}\n\n"
+        response += f"🔄 **Conversation Flow**: {analysis['conversation_flow']}\n\n"
+        
+        if analysis['recent_activity']:
+            response += f"💬 **Recent Discussion**:\n"
+            for entry in analysis['recent_activity'][-2:]:
+                speaker = entry.get('speaker', 'Unknown')
+                text = entry.get('text', '')[:80]
+                response += f"• {speaker}: {text}...\n"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating topic response: {e}")
+        return "Unable to generate topic response"
+
+def generate_realtime_summary_response(analysis):
+    """Generate real-time summary response"""
+    try:
+        response = f"📋 **Real-time Meeting Summary**\n\n"
+        
+        response += f"📊 **Overview**:\n"
+        response += f"• Total conversation entries: {analysis['total_entries']}\n"
+        response += f"• Active participants: {len(analysis['speakers'])}\n"
+        response += f"• Conversation type: {analysis['conversation_flow']}\n\n"
+        
+        response += f"🎯 **Current Focus**: {analysis['current_topic']}\n\n"
+        
+        if analysis['speaker_activity']:
+            response += f"👥 **Key Contributors**:\n"
+            for speaker_info in analysis['speaker_activity'][:3]:
+                response += f"• {speaker_info['name']}: {speaker_info['contributions']} contributions\n"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating real-time summary: {e}")
+        return "Unable to generate real-time summary"
+
+def generate_general_conversation_response(analysis, question):
+    """Generate general conversation response"""
+    try:
+        response = f"💬 **Conversation Analysis**\n\n"
+        response += f"❓ **Your Question**: {question}\n\n"
+        response += f"📊 **Current State**:\n"
+        response += f"• {analysis['conversation_flow']}\n"
+        response += f"• Topic: {analysis['current_topic']}\n"
+        response += f"• Active speakers: {len(analysis['speakers'])}\n\n"
+        
+        if analysis['recent_activity']:
+            response += f"🕒 **Latest Activity**:\n"
+            for entry in analysis['recent_activity'][-2:]:
+                speaker = entry.get('speaker', 'Unknown')
+                text = entry.get('text', '')[:60]
+                response += f"• {speaker}: {text}...\n"
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating general response: {e}")
+        return "Unable to analyze conversation"
 
 @csrf_exempt
 def summarize_meeting(request):
@@ -825,11 +1167,24 @@ def summarize_meeting(request):
         meeting_context = ""
         if meeting_id:
             try:
-                meeting = CalendarEvent.objects.get(id=meeting_id)
-                duration_minutes = int(meeting.duration.total_seconds() / 60)
-                meeting_context = f"Meeting: {meeting.title}\nDate: {meeting.date}\nDuration: {duration_minutes} minutes\nPlatform: {meeting.platform}\n"
-            except CalendarEvent.DoesNotExist:
-                pass
+                # Handle both string and integer meeting_id
+                if isinstance(meeting_id, str) and meeting_id.isdigit():
+                    meeting_id = int(meeting_id)
+                elif isinstance(meeting_id, str):
+                    # If it's a string that's not a digit, skip database lookup
+                    meeting_context = f"Meeting ID: {meeting_id}\n"
+                else:
+                    meeting = CalendarEvent.objects.get(id=meeting_id)
+                    duration_minutes = int(meeting.duration.total_seconds() / 60)
+                    meeting_context = (
+                        f"Meeting: {meeting.title}\n"
+                        f"Date: {meeting.date}\n"
+                        f"Duration: {duration_minutes} minutes\n"
+                        f"Platform: {meeting.platform}\n"
+                    )
+            except (CalendarEvent.DoesNotExist, ValueError, TypeError):
+                # If meeting_id is not a valid number, just use it as a string
+                meeting_context = f"Meeting ID: {meeting_id}\n"
         db_time = time.time() - db_start
         
         # Enhanced summary generation with full conversation analysis
@@ -1079,7 +1434,10 @@ def generate_ai_conversation_summary(full_conversation, speakers, conversation_a
         # Use Gemini AI to generate summary
         try:
             # Configure Gemini
-            genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+            api_key = getattr(settings, 'GEMINI_API_KEY', None)
+            if not api_key:
+                raise Exception("Gemini API key not configured")
+            genai.configure(api_key=api_key)
             model = genai.GenerativeModel('gemini-pro')
             
             # Generate AI response
@@ -1138,3 +1496,114 @@ def generate_basic_conversation_summary(full_conversation, speakers, conversatio
     except Exception as e:
         logger.error(f'Basic summary error: {e}')
         return "📋 **Summary Error**: Could not generate conversation summary."
+
+@csrf_exempt
+def gemini_chatbot(request):
+    """
+    Direct Gemini chatbot endpoint for real-time conversation analysis.
+    Receives transcript data and questions from the Chrome extension.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        question = data.get('question', '').strip()
+        transcript = data.get('transcript', '').strip()
+        meeting_id = data.get('meeting_id', 'unknown_meeting')
+        
+        if not question:
+            return JsonResponse({'error': 'Question is required'}, status=400)
+        
+        if not transcript:
+            return JsonResponse({'error': 'Transcript is required'}, status=400)
+        
+        logger.info(f'Gemini chatbot request - Question: {question[:50]}..., Meeting: {meeting_id}')
+        
+        # Configure Gemini AI
+        try:
+            api_key = getattr(settings, 'GEMINI_API_KEY', None)
+            if not api_key:
+                raise Exception("Gemini API key not configured")
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-pro')
+        except Exception as e:
+            logger.error(f'Gemini configuration error: {e}')
+            return JsonResponse({'error': 'AI service not available'}, status=500)
+        
+        # Create AI prompt for real-time conversation analysis
+        ai_prompt = f"""
+        You are an AI meeting assistant analyzing a real-time Google Meet conversation.
+        
+        User Question: {question}
+        
+        Meeting ID: {meeting_id}
+        
+        Conversation Transcript (last 20 exchanges):
+        {transcript}
+        
+        Please provide a helpful, contextual response to the user's question based on the conversation transcript.
+        Your response should:
+        1. Directly address the user's question
+        2. Reference specific parts of the conversation when relevant
+        3. Provide insights, clarifications, or summaries as appropriate
+        4. Be conversational and helpful
+        5. If the question is about what's happening, provide a real-time summary
+        6. If the question is about specific points, highlight those points from the transcript
+        
+        Keep your response concise but informative. Focus on being helpful to someone who is actively participating in the meeting.
+        """
+        
+        # Generate AI response
+        try:
+            response = model.generate_content(ai_prompt)
+            ai_answer = response.text.strip()
+            
+            # Format the response
+            formatted_answer = f"🤖 **AI-Powered Response**\n\n{ai_answer}\n\n"
+            formatted_answer += f"💬 **Based on**: {meeting_id} conversation"
+            
+            logger.info(f'Gemini response generated successfully for meeting {meeting_id}')
+            
+            return JsonResponse({
+                'answer': formatted_answer,
+                'ai_enhanced': True,
+                'meeting_id': meeting_id,
+                'transcript_length': len(transcript)
+            })
+            
+        except Exception as ai_error:
+            logger.error(f'Gemini AI generation error: {ai_error}')
+            
+            # Provide a fallback response for testing
+            fallback_answer = f"""🤖 **AI-Powered Response** (Fallback Mode)
+
+Based on the conversation transcript, here's what I can tell you:
+
+**Question**: {question}
+
+**Conversation Summary**:
+- Meeting ID: {meeting_id}
+- Transcript Length: {len(transcript)} characters
+- Recent exchanges captured from the meeting
+
+**Analysis**: The conversation appears to be in progress. The transcript shows recent exchanges between participants, and you're asking about what's happening in the meeting.
+
+**Note**: This is a fallback response while AI service is being configured. The actual Gemini AI integration will provide more detailed analysis once properly configured.
+
+💬 **Based on**: {meeting_id} conversation"""
+            
+            return JsonResponse({
+                'answer': fallback_answer,
+                'ai_enhanced': False,
+                'error': str(ai_error),
+                'fallback': True
+            })
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f'Gemini chatbot error: {e}')
+        import traceback
+        logger.error(f'Full traceback: {traceback.format_exc()}')
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)

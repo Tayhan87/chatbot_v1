@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Conversation Test</title>
+    <style>
+        body {
+            font-family: 'Google Sans', Arial, sans-serif;
+            margin: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #e8eaed;
+            border-radius: 4px;
+        }
+        .conversation-log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status {
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .status.recording {
+            background: #fce8e6;
+            color: #d93025;
+        }
+        .status.saved {
+            background: #e6f4ea;
+            color: #137333;
+        }
+        .status.info {
+            background: #e8f0fe;
+            color: #1967d2;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: #4285f4;
+            color: white;
+        }
+        .btn-secondary {
+            background: #f1f3f4;
+            color: #5f6368;
+        }
+        .btn-danger {
+            background: #ea4335;
+            color: white;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Real-time Conversation Capture Test</h1>
+        <p>This test demonstrates the real-time conversation capture and analysis features of your Google Meet Assistant.</p>
+
+        <div class="test-section">
+            <h3>📁 File Management</h3>
+            <div id="file-status" class="status info">📁 No conversation file initialized</div>
+            <button id="init-file-btn" class="btn-primary">Initialize Conversation File</button>
+            <button id="save-file-btn" class="btn-secondary">Save to File</button>
+            <button id="clear-file-btn" class="btn-danger">Clear File</button>
+        </div>
+
+        <div class="test-section">
+            <h3>🎤 Recording Simulation</h3>
+            <div id="recording-status" class="status info">⏸️ Not Recording</div>
+            <button id="start-recording-btn" class="btn-primary">Start Recording</button>
+            <button id="stop-recording-btn" class="btn-danger">Stop Recording</button>
+        </div>
+
+        <div class="test-section">
+            <h3>💬 Add Conversation Entry</h3>
+            <textarea id="conversation-input" placeholder="Enter conversation text..."></textarea>
+            <select id="speaker-select">
+                <option value="You">You</option>
+                <option value="Participant 1">Participant 1</option>
+                <option value="Participant 2">Participant 2</option>
+                <option value="Participant 3">Participant 3</option>
+            </select>
+            <button id="add-entry-btn" class="btn-primary">Add Entry</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Conversation Log</h3>
+            <div id="conversation-log" class="conversation-log">
+                No conversation entries yet...
+            </div>
+            <div id="transcript-count">📊 0 entries</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🤖 Real-time Analysis</h3>
+            <input type="text" id="question-input" placeholder="Ask about the conversation..." style="width: 70%; padding: 8px; margin-right: 10px;">
+            <button id="ask-question-btn" class="btn-primary">Ask</button>
+            <div id="analysis-response" style="margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px; min-height: 50px;">
+                Ask a question to see real-time analysis...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>💾 Auto-save Status</h3>
+            <div id="auto-save-status" class="status info">🔄 Auto-save: Disabled</div>
+            <button id="toggle-auto-save-btn" class="btn-secondary">Enable Auto-save</button>
+        </div>
+    </div>
+
+    <script>
+        // Simulate the conversation capture functionality
+        let conversationFile = null;
+        let isRecording = false;
+        let conversationEntries = [];
+        let autoSaveEnabled = false;
+        let autoSaveInterval = null;
+
+        // Initialize conversation file
+        function initializeConversationFile() {
+            const meetingId = 'test-meeting-' + Date.now();
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `meet_conversation_${meetingId}_${timestamp}.txt`;
+            
+            conversationFile = {
+                name: fileName,
+                meetingId: meetingId,
+                startTime: new Date().toISOString(),
+                entries: []
+            };
+            
+            updateFileStatus('📁 File initialized: ' + fileName);
+            console.log('📁 Initialized conversation file:', fileName);
+        }
+
+        // Save conversation to file
+        function saveConversationToFile() {
+            if (!conversationFile) {
+                alert('No conversation file initialized');
+                return false;
+            }
+
+            const fileContent = generateConversationFileContent();
+            const blob = new Blob([fileContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = conversationFile.name;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            updateFileStatus('💾 File saved: ' + conversationFile.name);
+            return true;
+        }
+
+        // Generate conversation file content
+        function generateConversationFileContent() {
+            const meetingInfo = `Google Meet Conversation Log (Test)
+Meeting ID: ${conversationFile.meetingId}
+Start Time: ${conversationFile.startTime}
+Current Time: ${new Date().toISOString()}
+Total Entries: ${conversationFile.entries.length}
+
+==========================================
+CONVERSATION TRANSCRIPT
+==========================================
+
+`;
+
+            const transcriptContent = conversationFile.entries.map(entry => 
+                `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`
+            ).join('\n\n');
+
+            const summaryContent = `
+==========================================
+CONVERSATION SUMMARY
+==========================================
+
+Key Topics Discussed:
+${extractKeyTopicsFromTranscript(conversationFile.entries)}
+
+Speaker Participation:
+${generateSpeakerSummary(conversationFile.entries)}
+
+Conversation Flow:
+${analyzeConversationFlow(conversationFile.entries)}
+
+==========================================
+END OF TRANSCRIPT
+==========================================
+`;
+
+            return meetingInfo + transcriptContent + summaryContent;
+        }
+
+        // Extract key topics
+        function extractKeyTopicsFromTranscript(entries) {
+            if (!entries.length) return 'No conversation yet';
+            
+            const allText = entries.map(entry => entry.text).join(' ').toLowerCase();
+            const words = allText.split(/\s+/);
+            const wordCount = {};
+            
+            words.forEach(word => {
+                if (word.length > 3) {
+                    wordCount[word] = (wordCount[word] || 0) + 1;
+                }
+            });
+            
+            const sortedWords = Object.entries(wordCount)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5)
+                .map(([word, count]) => `- ${word}: ${count} times`);
+            
+            return sortedWords.join('\n') || 'No significant topics identified';
+        }
+
+        // Generate speaker summary
+        function generateSpeakerSummary(entries) {
+            if (!entries.length) return 'No speakers yet';
+            
+            const speakerStats = {};
+            
+            entries.forEach(entry => {
+                if (!speakerStats[entry.speaker]) {
+                    speakerStats[entry.speaker] = { count: 0, words: 0 };
+                }
+                speakerStats[entry.speaker].count++;
+                speakerStats[entry.speaker].words += entry.text.split(' ').length;
+            });
+            
+            return Object.entries(speakerStats)
+                .map(([speaker, stats]) => 
+                    `- ${speaker}: ${stats.count} messages, ${stats.words} words`
+                ).join('\n');
+        }
+
+        // Analyze conversation flow
+        function analyzeConversationFlow(entries) {
+            if (entries.length < 2) return 'Insufficient data for flow analysis';
+            
+            const recentEntries = entries.slice(-5);
+            const speakers = recentEntries.map(entry => entry.speaker);
+            const uniqueSpeakers = [...new Set(speakers)];
+            
+            if (uniqueSpeakers.length === 1) {
+                return 'Monologue: Single speaker dominating conversation';
+            } else if (uniqueSpeakers.length === 2) {
+                return 'Dialogue: Two-way conversation';
+            } else {
+                return 'Group Discussion: Multiple participants';
+            }
+        }
+
+        // Update file status
+        function updateFileStatus(status) {
+            document.getElementById('file-status').textContent = status;
+            if (status.includes('saved')) {
+                document.getElementById('file-status').className = 'status saved';
+            } else if (status.includes('initialized')) {
+                document.getElementById('file-status').className = 'status info';
+            }
+        }
+
+        // Update recording status
+        function updateRecordingStatus(status) {
+            document.getElementById('recording-status').textContent = status;
+            if (status.includes('Recording')) {
+                document.getElementById('recording-status').className = 'status recording';
+            } else {
+                document.getElementById('recording-status').className = 'status info';
+            }
+        }
+
+        // Update conversation log
+        function updateConversationLog() {
+            const logElement = document.getElementById('conversation-log');
+            if (conversationEntries.length === 0) {
+                logElement.textContent = 'No conversation entries yet...';
+            } else {
+                logElement.innerHTML = conversationEntries.map(entry => 
+                    `<div>[${entry.timestamp}] <strong>${entry.speaker}</strong>: ${entry.text}</div>`
+                ).join('');
+            }
+            document.getElementById('transcript-count').textContent = `📊 ${conversationEntries.length} entries`;
+        }
+
+        // Add conversation entry
+        function addConversationEntry(text, speaker) {
+            const entry = {
+                text: text.trim(),
+                timestamp: new Date().toLocaleTimeString(),
+                speaker: speaker,
+                confidence: 0.9
+            };
+            
+            conversationEntries.push(entry);
+            
+            if (conversationFile) {
+                conversationFile.entries.push(entry);
+            }
+            
+            updateConversationLog();
+            
+            // Auto-save if enabled
+            if (autoSaveEnabled && conversationFile) {
+                saveConversationToFile();
+            }
+        }
+
+        // Start auto-save
+        function startAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+            
+            autoSaveInterval = setInterval(() => {
+                if (isRecording && conversationFile && conversationFile.entries.length > 0) {
+                    saveConversationToFile();
+                }
+            }, 30000); // Every 30 seconds
+            
+            autoSaveEnabled = true;
+            document.getElementById('auto-save-status').textContent = '🔄 Auto-save: Enabled (every 30s)';
+            document.getElementById('auto-save-status').className = 'status saved';
+        }
+
+        // Stop auto-save
+        function stopAutoSave() {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+            }
+            
+            autoSaveEnabled = false;
+            document.getElementById('auto-save-status').textContent = '🔄 Auto-save: Disabled';
+            document.getElementById('auto-save-status').className = 'status info';
+        }
+
+        // Simulate real-time analysis
+        function analyzeConversation(question) {
+            if (conversationEntries.length === 0) {
+                return 'No conversation data available for analysis.';
+            }
+            
+            const analysis = {
+                total_entries: conversationEntries.length,
+                speakers: [...new Set(conversationEntries.map(entry => entry.speaker))],
+                current_topic: extractKeyTopicsFromTranscript(conversationEntries.slice(-5)),
+                conversation_flow: analyzeConversationFlow(conversationEntries),
+                speaker_activity: generateSpeakerSummary(conversationEntries),
+                recent_activity: conversationEntries.slice(-3)
+            };
+            
+            let response = '';
+            
+            if (question.toLowerCase().includes('what') && question.toLowerCase().includes('happening')) {
+                response = `🎯 **Current Meeting Status**\n\n`;
+                response += `📊 **Conversation Stats**:\n`;
+                response += `• Total entries: ${analysis.total_entries}\n`;
+                response += `• Active speakers: ${analysis.speakers.length}\n`;
+                response += `• Conversation flow: ${analysis.conversation_flow}\n\n`;
+                response += `💬 **Current Topic**: ${analysis.current_topic}\n\n`;
+                
+                if (analysis.recent_activity.length > 0) {
+                    response += `🕒 **Recent Activity**:\n`;
+                    analysis.recent_activity.forEach(entry => {
+                        response += `• ${entry.speaker}: ${entry.text.substring(0, 60)}...\n`;
+                    });
+                }
+            } else if (question.toLowerCase().includes('who') && question.toLowerCase().includes('speaking')) {
+                response = `👥 **Speaker Activity**\n\n`;
+                response += `📈 **Most Active Speakers**:\n`;
+                response += analysis.speaker_activity + '\n\n';
+                response += `🔊 **All Participants**: ${analysis.speakers.join(', ')}`;
+            } else if (question.toLowerCase().includes('topic')) {
+                response = `🎯 **Current Discussion Topic**\n\n`;
+                response += `📝 **Topic**: ${analysis.current_topic}\n\n`;
+                response += `🔄 **Conversation Flow**: ${analysis.conversation_flow}\n\n`;
+                
+                if (analysis.recent_activity.length > 0) {
+                    response += `💬 **Recent Discussion**:\n`;
+                    analysis.recent_activity.forEach(entry => {
+                        response += `• ${entry.speaker}: ${entry.text.substring(0, 80)}...\n`;
+                    });
+                }
+            } else {
+                response = `💬 **Conversation Analysis**\n\n`;
+                response += `❓ **Your Question**: ${question}\n\n`;
+                response += `📊 **Current State**:\n`;
+                response += `• ${analysis.conversation_flow}\n`;
+                response += `• Topic: ${analysis.current_topic}\n`;
+                response += `• Active speakers: ${analysis.speakers.length}\n\n`;
+                
+                if (analysis.recent_activity.length > 0) {
+                    response += `🕒 **Latest Activity**:\n`;
+                    analysis.recent_activity.forEach(entry => {
+                        response += `• ${entry.speaker}: ${entry.text.substring(0, 60)}...\n`;
+                    });
+                }
+            }
+            
+            return response;
+        }
+
+        // Event listeners
+        document.getElementById('init-file-btn').addEventListener('click', () => {
+            initializeConversationFile();
+        });
+
+        document.getElementById('save-file-btn').addEventListener('click', () => {
+            if (saveConversationToFile()) {
+                alert('Conversation saved successfully!');
+            }
+        });
+
+        document.getElementById('clear-file-btn').addEventListener('click', () => {
+            conversationFile = null;
+            conversationEntries = [];
+            updateFileStatus('📁 No conversation file');
+            updateConversationLog();
+        });
+
+        document.getElementById('start-recording-btn').addEventListener('click', () => {
+            if (!conversationFile) {
+                initializeConversationFile();
+            }
+            isRecording = true;
+            updateRecordingStatus('🔴 Recording');
+            startAutoSave();
+        });
+
+        document.getElementById('stop-recording-btn').addEventListener('click', () => {
+            isRecording = false;
+            updateRecordingStatus('⏸️ Not Recording');
+            stopAutoSave();
+            if (conversationFile && conversationFile.entries.length > 0) {
+                saveConversationToFile();
+            }
+        });
+
+        document.getElementById('add-entry-btn').addEventListener('click', () => {
+            const text = document.getElementById('conversation-input').value;
+            const speaker = document.getElementById('speaker-select').value;
+            
+            if (text.trim()) {
+                addConversationEntry(text, speaker);
+                document.getElementById('conversation-input').value = '';
+            } else {
+                alert('Please enter conversation text');
+            }
+        });
+
+        document.getElementById('ask-question-btn').addEventListener('click', () => {
+            const question = document.getElementById('question-input').value;
+            if (question.trim()) {
+                const response = analyzeConversation(question);
+                document.getElementById('analysis-response').innerHTML = response.replace(/\n/g, '<br>');
+                document.getElementById('question-input').value = '';
+            } else {
+                alert('Please enter a question');
+            }
+        });
+
+        document.getElementById('toggle-auto-save-btn').addEventListener('click', () => {
+            if (autoSaveEnabled) {
+                stopAutoSave();
+                document.getElementById('toggle-auto-save-btn').textContent = 'Enable Auto-save';
+            } else {
+                startAutoSave();
+                document.getElementById('toggle-auto-save-btn').textContent = 'Disable Auto-save';
+            }
+        });
+
+        // Initialize
+        console.log('🎤 Real-time conversation test initialized');
+    </script>
+</body>
+</html> 

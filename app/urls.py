@@ -24,4 +24,6 @@ urlpatterns = [
     path('api/userinfo/', views.userinfo, name='userinfo'),#added by sumon
     path('chatbot/ask/', views.ask_question, name='ask_question'),
     path('chatbot/summarize/', views.summarize_meeting, name='summarize_meeting'),
+    path('chatbot/realtime-analysis/', views.realtime_conversation_analysis, name='realtime_conversation_analysis'),
+    path('chatbot/gemini/', views.gemini_chatbot, name='gemini_chatbot'),
 ]

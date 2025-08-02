@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #1557b0;
+        }
+        .log-area {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chrome Extension Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>Extension Status Check</h2>
+        <button class="test-button" onclick="checkExtensionStatus()">Check Extension Status</button>
+        <div id="extension-status" class="status info">Click the button to check extension status</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Background Script Communication Test</h2>
+        <button class="test-button" onclick="testBackgroundCommunication()">Test Background Communication</button>
+        <div id="background-test" class="status info">Click the button to test background script communication</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Django Backend Test</h2>
+        <button class="test-button" onclick="testDjangoBackend()">Test Django Backend</button>
+        <div id="django-test" class="status info">Click the button to test Django backend connectivity</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Ask Button Simulation</h2>
+        <input type="text" id="test-question" placeholder="Enter a test question" style="width: 300px; padding: 8px; margin: 5px;">
+        <button class="test-button" onclick="simulateAskButton()">Simulate Ask Button</button>
+        <div id="ask-test" class="status info">Enter a question and click the button to simulate the ask functionality</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Console Logs</h2>
+        <button class="test-button" onclick="clearLogs()">Clear Logs</button>
+        <div id="console-logs" class="log-area">Logs will appear here...</div>
+    </div>
+
+    <script>
+        // Override console.log to capture logs
+        const originalLog = console.log;
+        const originalError = console.error;
+        const logArea = document.getElementById('console-logs');
+
+        function addLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logArea.textContent += logEntry;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addLog(args.join(' '), 'log');
+        };
+
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addLog(args.join(' '), 'error');
+        };
+
+        function updateStatus(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `status ${type}`;
+        }
+
+        function checkExtensionStatus() {
+            console.log('Checking extension status...');
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                console.log('Chrome runtime API available');
+                
+                // Check if extension is installed
+                chrome.runtime.sendMessage({type: 'GET_AUTH_STATE'}, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Extension not found or not responding:', chrome.runtime.lastError);
+                        updateStatus('extension-status', '❌ Extension not found or not responding', 'error');
+                    } else {
+                        console.log('Extension is responding:', response);
+                        updateStatus('extension-status', '✅ Extension is working and responding', 'success');
+                    }
+                });
+            } else {
+                console.error('Chrome runtime API not available');
+                updateStatus('extension-status', '❌ Chrome runtime API not available (not running in extension context)', 'error');
+            }
+        }
+
+        function testBackgroundCommunication() {
+            console.log('Testing background script communication...');
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({
+                    type: 'ASSISTANT_REQUEST',
+                    data: {
+                        type: 'ASK_QUESTION',
+                        data: {
+                            question: 'Test question from debug page'
+                        }
+                    }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Background communication failed:', chrome.runtime.lastError);
+                        updateStatus('background-test', '❌ Background communication failed: ' + chrome.runtime.lastError.message, 'error');
+                    } else {
+                        console.log('Background communication successful:', response);
+                        updateStatus('background-test', '✅ Background communication working', 'success');
+                    }
+                });
+            } else {
+                updateStatus('background-test', '❌ Chrome runtime not available', 'error');
+            }
+        }
+
+        function testDjangoBackend() {
+            console.log('Testing Django backend...');
+            
+            fetch('http://127.0.0.1:8000/chatbot/ask/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    question: 'Test question',
+                    meeting_id: 'test'
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Django backend response:', data);
+                updateStatus('django-test', '✅ Django backend is working', 'success');
+            })
+            .catch(error => {
+                console.error('Django backend error:', error);
+                updateStatus('django-test', '❌ Django backend error: ' + error.message, 'error');
+            });
+        }
+
+        function simulateAskButton() {
+            const question = document.getElementById('test-question').value.trim();
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+
+            console.log('Simulating ask button with question:', question);
+            
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({
+                    type: 'ASSISTANT_REQUEST',
+                    data: {
+                        type: 'ASK_QUESTION',
+                        data: {
+                            question: question
+                        }
+                    }
+                }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.error('Ask button simulation failed:', chrome.runtime.lastError);
+                        updateStatus('ask-test', '❌ Ask button failed: ' + chrome.runtime.lastError.message, 'error');
+                    } else {
+                        console.log('Ask button simulation response:', response);
+                        updateStatus('ask-test', '✅ Ask button working - Response received', 'success');
+                    }
+                });
+            } else {
+                updateStatus('ask-test', '❌ Chrome runtime not available', 'error');
+            }
+        }
+
+        function clearLogs() {
+            logArea.textContent = 'Logs cleared...\n';
+        }
+
+        // Auto-check extension status on page load
+        window.addEventListener('load', () => {
+            console.log('Debug page loaded');
+            setTimeout(checkExtensionStatus, 1000);
+        });
+    </script>
+</body>
+</html> 

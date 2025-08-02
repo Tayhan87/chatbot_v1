@@ -23,6 +23,15 @@
     let systemAudioStream = null;
     let speakerIdentification = new Map(); // Track speakers by voice characteristics
     let audioMode = 'basic'; // 'basic' or 'enhanced'
+    
+    // Real-time conversation tracking
+    let conversationFile = null;
+    let autoSaveInterval = null;
+    let meetingStartTime = null;
+    let conversationBuffer = [];
+    let lastSaveTime = Date.now();
+    const SAVE_INTERVAL = 30000; // Save every 30 seconds
+    const BUFFER_SIZE = 50; // Keep last 50 entries in buffer
 
     // Error handling and debugging
     function handleError(error, context) {
@@ -41,6 +50,224 @@
         }
     }
 
+    // Initialize real-time conversation file
+    function initializeConversationFile() {
+        try {
+            const meetingId = window.location.href.split('/').pop() || 'meeting';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `meet_conversation_${meetingId}_${timestamp}.txt`;
+            
+            conversationFile = {
+                name: fileName,
+                meetingId: meetingId,
+                startTime: new Date().toISOString(),
+                entries: []
+            };
+            
+            console.log('📁 Initialized conversation file:', fileName);
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to initialize conversation file:', error);
+            return false;
+        }
+    }
+
+    // Save conversation to file in real-time
+    function saveConversationToFile(entry = null) {
+        try {
+            if (!conversationFile) {
+                console.warn('No conversation file initialized');
+                return false;
+            }
+
+            // Add new entry if provided
+            if (entry) {
+                conversationFile.entries.push(entry);
+                conversationBuffer.push(entry);
+                
+                // Keep buffer size manageable
+                if (conversationBuffer.length > BUFFER_SIZE) {
+                    conversationBuffer.shift();
+                }
+            }
+
+            // Create file content
+            const fileContent = generateConversationFileContent();
+            
+            // Create and download file
+            const blob = new Blob([fileContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = conversationFile.name;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            lastSaveTime = Date.now();
+            console.log('💾 Conversation saved to file:', conversationFile.name);
+            return true;
+        } catch (error) {
+            console.error('❌ Failed to save conversation file:', error);
+            return false;
+        }
+    }
+
+    // Generate formatted conversation file content
+    function generateConversationFileContent() {
+        try {
+            const meetingInfo = `Google Meet Conversation Log
+Meeting ID: ${conversationFile.meetingId}
+Start Time: ${conversationFile.startTime}
+Current Time: ${new Date().toISOString()}
+Duration: ${meetingStartTime ? Math.round((Date.now() - meetingStartTime) / 1000 / 60) : 0} minutes
+Total Entries: ${conversationFile.entries.length}
+
+==========================================
+CONVERSATION TRANSCRIPT
+==========================================
+
+`;
+
+            const transcriptContent = conversationFile.entries.map(entry => 
+                `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`
+            ).join('\n\n');
+
+            const summaryContent = `
+==========================================
+CONVERSATION SUMMARY
+==========================================
+
+Key Topics Discussed:
+${extractKeyTopicsFromTranscript(conversationFile.entries)}
+
+Speaker Participation:
+${generateSpeakerSummary(conversationFile.entries)}
+
+Conversation Flow:
+${analyzeConversationFlow(conversationFile.entries)}
+
+==========================================
+END OF TRANSCRIPT
+==========================================
+`;
+
+            return meetingInfo + transcriptContent + summaryContent;
+        } catch (error) {
+            console.error('❌ Failed to generate file content:', error);
+            return 'Error generating conversation file content';
+        }
+    }
+
+    // Extract key topics from transcript
+    function extractKeyTopicsFromTranscript(entries) {
+        try {
+            const allText = entries.map(entry => entry.text).join(' ').toLowerCase();
+            const words = allText.split(/\s+/);
+            const wordCount = {};
+            
+            words.forEach(word => {
+                if (word.length > 3) {
+                    wordCount[word] = (wordCount[word] || 0) + 1;
+                }
+            });
+            
+            const sortedWords = Object.entries(wordCount)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 10)
+                .map(([word, count]) => `- ${word}: ${count} times`);
+            
+            return sortedWords.join('\n');
+        } catch (error) {
+            console.warn('Could not extract topics:', error);
+            return 'Topics analysis unavailable';
+        }
+    }
+
+    // Generate speaker summary
+    function generateSpeakerSummary(entries) {
+        try {
+            const speakerStats = {};
+            
+            entries.forEach(entry => {
+                if (!speakerStats[entry.speaker]) {
+                    speakerStats[entry.speaker] = { count: 0, words: 0 };
+                }
+                speakerStats[entry.speaker].count++;
+                speakerStats[entry.speaker].words += entry.text.split(' ').length;
+            });
+            
+            return Object.entries(speakerStats)
+                .map(([speaker, stats]) => 
+                    `- ${speaker}: ${stats.count} messages, ${stats.words} words`
+                ).join('\n');
+        } catch (error) {
+            console.warn('Could not generate speaker summary:', error);
+            return 'Speaker analysis unavailable';
+        }
+    }
+
+    // Analyze conversation flow
+    function analyzeConversationFlow(entries) {
+        try {
+            if (entries.length < 2) return 'Insufficient data for flow analysis';
+            
+            const recentEntries = entries.slice(-10);
+            const speakers = recentEntries.map(entry => entry.speaker);
+            const uniqueSpeakers = [...new Set(speakers)];
+            
+            let flow = '';
+            if (uniqueSpeakers.length === 1) {
+                flow = 'Monologue: Single speaker dominating conversation';
+            } else if (uniqueSpeakers.length === 2) {
+                flow = 'Dialogue: Two-way conversation';
+            } else {
+                flow = 'Group Discussion: Multiple participants';
+            }
+            
+            return flow;
+        } catch (error) {
+            console.warn('Could not analyze conversation flow:', error);
+            return 'Flow analysis unavailable';
+        }
+    }
+
+    // Start auto-save functionality
+    function startAutoSave() {
+        try {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+            }
+            
+            autoSaveInterval = setInterval(() => {
+                if (isRecording && conversationFile) {
+                    saveConversationToFile();
+                    updateResponseDisplay('<div style="color: #34a853; font-size: 11px;">💾 Auto-saved conversation</div>', false);
+                }
+            }, SAVE_INTERVAL);
+            
+            console.log('🔄 Auto-save started (every 30 seconds)');
+        } catch (error) {
+            console.error('❌ Failed to start auto-save:', error);
+        }
+    }
+
+    // Stop auto-save functionality
+    function stopAutoSave() {
+        try {
+            if (autoSaveInterval) {
+                clearInterval(autoSaveInterval);
+                autoSaveInterval = null;
+                console.log('⏹️ Auto-save stopped');
+            }
+        } catch (error) {
+            console.error('❌ Failed to stop auto-save:', error);
+        }
+    }
+
     // Create floating assistant panel
     function createAssistantPanel() {
         try {
@@ -54,15 +281,21 @@
                     <button id="assistant-toggle" class="toggle-btn">−</button>
                 </div>
                 <div class="assistant-content">
-                    <div class="input-section">
-                        <textarea id="question-input" placeholder="Ask a question about the meeting..."></textarea>
-                        <div class="button-row">
-                            <button id="ask-btn" class="btn-primary">Ask</button>
-                            <button id="mic-btn" class="btn-secondary">🎤</button>
-                            <label class="speech-toggle">
-                                <input type="checkbox" id="speech-toggle"> Speech
-                            </label>
-                                            </div>
+                                    <div class="input-section">
+                    <textarea id="question-input" placeholder="Ask a question about the meeting..."></textarea>
+                    <div class="button-row">
+                        <button id="ask-btn" class="btn-primary">Ask</button>
+                        <button id="mic-btn" class="btn-secondary">🎤</button>
+                        <label class="speech-toggle">
+                            <input type="checkbox" id="speech-toggle"> Speech
+                        </label>
+                    </div>
+                    <div class="example-questions">
+                        <small style="color: #666; font-size: 11px;">
+                            💡 Try: "What's happening?" "Who's speaking?" "What's the current topic?"<br>
+                            🤖 AI: "Clarify the discussion about..." "Explain what was meant by..." "What are the key points discussed?"
+                        </small>
+                    </div>
                 </div>
                 <div class="recording-section">
                     <button id="record-toggle-btn" class="btn-primary">🎤 Start Recording</button>
@@ -73,6 +306,7 @@
                 <div class="action-section">
                     <button id="summarize-btn" class="btn-secondary">📋 Summarize Meeting</button>
                     <button id="transcript-btn" class="btn-secondary">📝 Show Transcript</button>
+                    <button id="save-file-btn" class="btn-secondary">💾 Save to File</button>
                 </div>
                 <div class="audio-mode-section">
                     <button id="audio-toggle-btn" class="btn-secondary">🎵 Toggle Audio Mode</button>
@@ -84,9 +318,15 @@
                     <div id="recording-status" class="status-indicator">⏸️ Not Recording</div>
                     <div id="transcript-count" class="status-indicator">📊 0 entries</div>
                     <div id="audio-status" class="status-indicator">🎵 Basic Mode</div>
+                    <div id="file-status" class="status-indicator">📁 No File</div>
                 </div>
                     <div class="response-section">
-                        <div id="response-display" class="response-area"></div>
+                        <div style="font-size: 12px; color: #5f6368; margin-bottom: 4px; font-weight: 500;">🤖 Assistant Response:</div>
+                        <div id="response-display" class="response-area">
+                            <div style="color: #666; text-align: center; padding: 20px;">
+                                💬 Ask a question above to see the assistant's response here
+                            </div>
+                        </div>
                     </div>
                     <div class="meeting-info-section">
                         <div id="meeting-info-display" class="meeting-info-area"></div>
@@ -208,6 +448,9 @@
                     white-space: pre-wrap;
                     scrollbar-width: thin;
                     scrollbar-color: #dadce0 #f8f9fa;
+                    display: block;
+                    visibility: visible;
+                    margin-top: 8px;
                 }
                 .response-area::-webkit-scrollbar {
                     width: 8px;
@@ -593,14 +836,30 @@
                         meetingTranscript.push(entry);
                         updateTranscriptCount();
                         
+                        // Save to conversation file in real-time
+                        if (conversationFile && isRecording) {
+                            saveConversationToFile(entry);
+                        }
+                        
                         // Send transcript update to background script
                         try {
                             chrome.runtime.sendMessage({
                                 type: 'TRANSCRIPT_UPDATE',
                                 transcript: meetingTranscript
                             });
+                            console.log('✅ Transcript update sent to background script');
                         } catch (error) {
                             console.warn('Could not send transcript update:', error);
+                            // Try to send just the new entry as fallback
+                            try {
+                                chrome.runtime.sendMessage({
+                                    type: 'TRANSCRIPT_UPDATE',
+                                    transcript: [entry]
+                                });
+                                console.log('✅ Fallback transcript update sent');
+                            } catch (fallbackError) {
+                                console.warn('Fallback transcript update also failed:', fallbackError);
+                            }
                         }
                         
                         console.log('Added transcript entry:', entry);
@@ -624,6 +883,14 @@
                 } else if (event.error === 'no-speech') {
                     console.log('No speech detected, continuing...');
                     // Don't stop recording for no-speech, just continue
+                    // Restart recognition to keep listening
+                    if (isRecording && recognition) {
+                        try {
+                            recognition.start();
+                        } catch (error) {
+                            console.log('Recognition already started, continuing...');
+                        }
+                    }
                     return;
                 } else if (event.error === 'network') {
                     console.error('Network error in speech recognition');
@@ -764,10 +1031,35 @@
         }
     }
 
+    // Update file status display
+    function updateFileStatus(status = '📁 No File') {
+        try {
+            const fileStatusElement = document.getElementById('file-status');
+            if (fileStatusElement) {
+                fileStatusElement.textContent = status;
+                if (status.includes('Saved')) {
+                    fileStatusElement.style.color = '#34a853';
+                } else if (status.includes('Recording')) {
+                    fileStatusElement.style.color = '#ea4335';
+                } else {
+                    fileStatusElement.style.color = '#5f6368';
+                }
+            }
+        } catch (error) {
+            console.warn('Could not update file status:', error);
+        }
+    }
+
     // Start manual recording (SAFE MODE)
     function startRecording() {
         try {
             console.log('🎤 Starting recording (safe mode)...');
+            
+            // Initialize conversation file and auto-save
+            if (!conversationFile) {
+                initializeConversationFile();
+                meetingStartTime = Date.now();
+            }
             
             if (!recognition) {
                 console.log('🔧 Initializing speech recognition...');
@@ -789,7 +1081,15 @@
                         isRecording = true;
                         updateRecordingButton();
                         updateRecordingStatus();
+                        
+                        // Start auto-save functionality
+                        startAutoSave();
+                        
+                        // Update file status
+                        updateFileStatus('📁 Recording');
+                        
                         console.log('✅ Manual recording started successfully');
+                        updateResponseDisplay('<div style="color: #34a853;">🎤 Recording started! Conversation will be saved automatically.</div>');
                     } catch (startError) {
                         console.error('❌ Error starting recognition:', startError);
                         isRecording = false;
@@ -815,6 +1115,17 @@
                 isRecording = false;
                 updateRecordingButton();
                 updateRecordingStatus();
+                
+                // Stop auto-save and save final conversation
+                stopAutoSave();
+                if (conversationFile && conversationFile.entries.length > 0) {
+                    saveConversationToFile();
+                    updateResponseDisplay('<div style="color: #34a853;">💾 Final conversation saved to file!</div>');
+                }
+                
+                // Update file status
+                updateFileStatus('📁 Saved');
+                
                 console.log('⏹️ Manual recording stopped');
             } catch (error) {
                 console.error('❌ Failed to stop recording:', error);
@@ -955,24 +1266,41 @@
     // Helper function to update response display with auto-scroll
     function updateResponseDisplay(content, autoScroll = true) {
         const responseDisplay = document.getElementById('response-display');
-        if (!responseDisplay) return;
+        if (!responseDisplay) {
+            console.error('❌ Response display element not found in updateResponseDisplay');
+            return;
+        }
 
         try {
+            console.log('📱 Updating response display with content length:', content.length);
+            
             // Format content for better display
             const formattedContent = content.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
             responseDisplay.innerHTML = formattedContent;
+            
+            // Make sure the response area is visible
+            responseDisplay.style.display = 'block';
+            responseDisplay.style.visibility = 'visible';
             
             // Auto-scroll to bottom if content is long
             if (autoScroll) {
                 setTimeout(() => {
                     responseDisplay.scrollTop = responseDisplay.scrollHeight;
+                    console.log('📱 Scrolled to bottom, scroll height:', responseDisplay.scrollHeight);
                 }, 100);
             }
             
-            console.log('📱 Response display updated, scroll height:', responseDisplay.scrollHeight);
+            console.log('✅ Response display updated successfully');
+            
+            // Add a visual indicator that content was updated
+            responseDisplay.style.border = '2px solid #4285f4';
+            setTimeout(() => {
+                responseDisplay.style.border = '1px solid #e8eaed';
+            }, 500);
+            
         } catch (error) {
-            console.error('Error updating response display:', error);
-            responseDisplay.innerHTML = `<div style="color: red;">❌ Display Error</div>`;
+            console.error('❌ Error updating response display:', error);
+            responseDisplay.innerHTML = `<div style="color: red; padding: 8px; background: #ffebee; border-radius: 4px;">❌ Display Error: ${error.message}</div>`;
         }
     }
 
@@ -1004,33 +1332,66 @@
     function handleAssistantResponse(response) {
         try {
             const responseStart = performance.now();
+            console.log('🤖 Handling assistant response:', response);
             
             const speechToggle = document.getElementById('speech-toggle');
+            const responseDisplay = document.getElementById('response-display');
+            
+            // Check if response display exists
+            if (!responseDisplay) {
+                console.error('❌ Response display element not found!');
+                return;
+            }
+            
+            console.log('✅ Response display element found, updating...');
             
             if (response.error) {
-                updateResponseDisplay(`<div style="color: red;">❌ Error: ${response.error}</div>`);
+                const errorMessage = `<div style="color: red; padding: 8px; background: #ffebee; border-radius: 4px; margin: 4px 0;">❌ Error: ${response.error}</div>`;
+                updateResponseDisplay(errorMessage);
+                console.log('❌ Displayed error response');
             } else if (response.answer) {
-                updateResponseDisplay(`<div style="color: #1a73e8;">💬 ${response.answer}</div>`);
+                // Check if this is an AI-enhanced response
+                const isAIEnhanced = response.ai_enhanced || response.answer.includes('🤖 **AI-Powered');
+                const responseColor = isAIEnhanced ? '#9c27b0' : '#1a73e8';
+                const responseIcon = isAIEnhanced ? '🤖' : '💬';
+                
+                const responseMessage = `<div style="color: ${responseColor}; padding: 8px; background: #f8f9fa; border-radius: 4px; margin: 4px 0; border-left: 4px solid ${responseColor};">${responseIcon} ${response.answer}</div>`;
+                updateResponseDisplay(responseMessage);
+                console.log('✅ Displayed answer response:', response.answer.substring(0, 100) + '...');
                 
                 // Speech output if enabled
                 if (speechToggle && speechToggle.checked && window.speechSynthesis) {
                     const utterance = new SpeechSynthesisUtterance(response.answer);
                     window.speechSynthesis.speak(utterance);
+                    console.log('🔊 Speech synthesis enabled');
+                }
+                
+                // Show AI enhancement indicator if applicable
+                if (isAIEnhanced) {
+                    console.log('🤖 AI-enhanced response provided');
                 }
             } else if (response.summary) {
-                updateResponseDisplay(`<div style="color: #34a853;">📋 ${response.summary}</div>`);
+                const summaryMessage = `<div style="color: #34a853; padding: 8px; background: #e8f5e8; border-radius: 4px; margin: 4px 0; border-left: 4px solid #34a853;">📋 ${response.summary}</div>`;
+                updateResponseDisplay(summaryMessage);
+                console.log('📋 Displayed summary response');
                 
                 // Speech output if enabled
                 if (speechToggle && speechToggle.checked && window.speechSynthesis) {
                     const utterance = new SpeechSynthesisUtterance(response.summary);
                     window.speechSynthesis.speak(utterance);
                 }
+            } else {
+                // Handle case where response doesn't have expected fields
+                const fallbackMessage = `<div style="color: #666; padding: 8px; background: #f8f9fa; border-radius: 4px; margin: 4px 0;">💬 Response received: ${JSON.stringify(response).substring(0, 200)}...</div>`;
+                updateResponseDisplay(fallbackMessage);
+                console.log('⚠️ Displayed fallback response');
             }
 
             const responseTime = performance.now() - responseStart;
             logPerformance('Response Handling', responseTime);
         } catch (error) {
-            console.error('Error handling assistant response:', error);
+            console.error('❌ Error handling assistant response:', error);
+            updateResponseDisplay(`<div style="color: red; padding: 8px; background: #ffebee; border-radius: 4px; margin: 4px 0;">❌ Error processing response: ${error.message}</div>`);
         }
     }
 
@@ -1060,51 +1421,44 @@
             // Initialize meeting transcription
             recognition = initializeMeetingTranscription();
 
-            // Get meeting data from storage
+            // Create a default meeting object for this tab
+            const defaultMeeting = {
+                id: 'meet_' + Date.now(),
+                title: 'Google Meet Session',
+                link: window.location.href,
+                folder: '',
+                duration: 0
+            };
+
+            console.log('Creating default meeting data:', defaultMeeting);
+            
+            // Notify background script that assistant is ready with default meeting data
             try {
-                chrome.storage.local.get(['currentMeeting'], (result) => {
-                    try {
-                        const meeting = result.currentMeeting;
-                        if (meeting) {
-                            console.log('Found meeting data:', meeting);
-                            
-                            // Notify background script that assistant is ready
-                            try {
-                                chrome.runtime.sendMessage({
-                                    type: 'MEET_ASSISTANT_READY',
-                                    meeting: meeting
-                                });
-                            } catch (error) {
-                                console.warn('Could not send assistant ready message:', error);
-                            }
-                            
-                                                    // Initialize speech recognition (but don't start recording automatically)
-                        recognition = initializeMeetingTranscription();
-                        
-                        // Set initial audio mode
-                        updateAudioStatus('basic');
-                        
-                        // Check if speech recognition is available
-                        checkMicrophonePermission().then((hasPermission) => {
-                            if (hasPermission) {
-                                console.log('✅ Speech recognition ready - user can start recording manually');
-                                updateRecordingStatus('⏸️ Ready to Record');
-                            } else {
-                                console.log('❌ Speech recognition not available');
-                                updateRecordingStatus('❌ Not Available');
-                            }
-                        });
-                        } else {
-                            console.log('No meeting data found, transcription will not start');
-                            updateRecordingStatus('⏸️ No Meeting');
-                        }
-                    } catch (error) {
-                        console.error('Error processing meeting data:', error);
-                    }
+                chrome.runtime.sendMessage({
+                    type: 'MEET_ASSISTANT_READY',
+                    meeting: defaultMeeting
                 });
+                console.log('✅ Assistant ready message sent to background script');
             } catch (error) {
-                console.error('Error accessing storage:', error);
+                console.warn('Could not send assistant ready message:', error);
             }
+            
+            // Initialize speech recognition (but don't start recording automatically)
+            recognition = initializeMeetingTranscription();
+            
+            // Set initial audio mode
+            updateAudioStatus('basic');
+            
+            // Check if speech recognition is available
+            checkMicrophonePermission().then((hasPermission) => {
+                if (hasPermission) {
+                    console.log('✅ Speech recognition ready - user can start recording manually');
+                    updateRecordingStatus('⏸️ Ready to Record');
+                } else {
+                    console.log('❌ Speech recognition not available');
+                    updateRecordingStatus('❌ Not Available');
+                }
+            });
 
             // Event listeners
             try {
@@ -1113,6 +1467,7 @@
                 const micBtn = document.getElementById('mic-btn');
                 const summarizeBtn = document.getElementById('summarize-btn');
                 const transcriptBtn = document.getElementById('transcript-btn');
+                const saveFileBtn = document.getElementById('save-file-btn');
                 const assistantToggle = document.getElementById('assistant-toggle');
                 const recordToggleBtn = document.getElementById('record-toggle-btn');
                 const audioToggleBtn = document.getElementById('audio-toggle-btn');
@@ -1129,41 +1484,34 @@
                                 return;
                             }
 
-                            console.log('Sending question:', question);
+                            updateResponseDisplay('<div style="color: #666;">⏳ Processing your question...</div>', false);
                             
-                            // Show enhanced loading state for conversation analysis
-                            const isConversationQuery = question.toLowerCase().includes('what happened') || 
-                                                       question.toLowerCase().includes('talking') ||
-                                                       question.toLowerCase().includes('discussion') ||
-                                                       question.toLowerCase().includes('conversation');
+                            // Get current conversation transcript
+                            const transcriptForGemini = meetingTranscript.slice(-20).map(entry => {
+                                return `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`;
+                            }).join('\n');
                             
-                            if (isConversationQuery) {
-                                updateResponseDisplay('<div style="color: #666;">🤖 Analyzing conversation with AI...</div>', false);
-                            } else {
-                                updateResponseDisplay('<div style="color: #666;">⏳ Getting answer...</div>', false);
-                            }
+                            // Send to Gemini API (via backend or Gemini JS SDK)
+                            const response = await fetch('http://localhost:8000/chatbot/gemini/', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    question: question,
+                                    transcript: transcriptForGemini,
+                                    meeting_id: conversationFile?.meetingId || 'unknown_meeting'
+                                })
+                            });
                             
-                            try {
-                                // Send message and wait for response
-                                const response = await sendToBackground('ASK_QUESTION', { question });
-                                console.log('Received response:', response);
-                                
-                                // Handle the response
-                                if (response && response.data) {
-                                    handleAssistantResponse(response.data);
-                                } else {
-                                    updateResponseDisplay('<div style="color: red;">❌ No response received</div>');
-                                }
-                                
-                            } catch (error) {
-                                console.error('Error asking question:', error);
-                                updateResponseDisplay(`<div style="color: red;">❌ Error: ${error.message}</div>`);
-                            }
+                            const result = await response.json();
+                            handleAssistantResponse({ answer: result.answer || 'No response received', ai_enhanced: true });
                             
                             const clickTime = performance.now() - clickStart;
-                            logPerformance('Ask Button Click', clickTime);
+                            logPerformance('Ask Button Click (Gemini)', clickTime);
                         } catch (error) {
-                            console.error('Error in ask button click:', error);
+                            console.error('Gemini Ask Error:', error);
+                            updateResponseDisplay(`<div style='color:red;'>❌ Error: ${error.message}</div>`);
                         }
                     });
                 }
@@ -1255,6 +1603,40 @@
                             }
                         } catch (error) {
                             console.error('Error showing transcript:', error);
+                        }
+                    });
+                }
+
+                // Save conversation to file
+                if (saveFileBtn) {
+                    saveFileBtn.addEventListener('click', () => {
+                        try {
+                            if (!conversationFile) {
+                                initializeConversationFile();
+                            }
+                            
+                            if (meetingTranscript.length === 0) {
+                                updateResponseDisplay('<div style="color: #666;">📝 No conversation to save yet</div>');
+                                return;
+                            }
+                            
+                            // Add all current transcript entries to conversation file
+                            meetingTranscript.forEach(entry => {
+                                if (conversationFile) {
+                                    conversationFile.entries.push(entry);
+                                }
+                            });
+                            
+                            // Save the file
+                            if (saveConversationToFile()) {
+                                updateResponseDisplay('<div style="color: #34a853;">💾 Conversation saved to file successfully!</div>');
+                                updateFileStatus('📁 Saved');
+                            } else {
+                                updateResponseDisplay('<div style="color: #ea4335;">❌ Failed to save conversation file</div>');
+                            }
+                        } catch (error) {
+                            console.error('Error saving conversation file:', error);
+                            updateResponseDisplay('<div style="color: #ea4335;">❌ Error saving file: ' + error.message + '</div>');
                         }
                     });
                 }
@@ -1410,5 +1792,4 @@ Platform: Meet
     } catch (error) {
         console.error('❌ Error in assistant initialization setup:', error);
     }
-})(); 
 })(); 

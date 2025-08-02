@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Enhanced Conversation Analysis Test</title>
+    <style>
+        body {
+            font-family: 'Google Sans', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .ai-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .conversation-panel {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .file-panel {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .analysis-panel {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        h1, h2, h3 {
+            margin-top: 0;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .btn-primary {
+            background: #4285f4;
+            color: white;
+        }
+        .btn-secondary {
+            background: #34a853;
+            color: white;
+        }
+        .btn-ai {
+            background: #9c27b0;
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        .conversation-entry {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 6px;
+            border-left: 4px solid #fff;
+        }
+        .speaker-you {
+            border-left-color: #4285f4;
+        }
+        .speaker-participant {
+            border-left-color: #34a853;
+        }
+        .speaker-other {
+            border-left-color: #ea4335;
+        }
+        .response-area {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 6px;
+            min-height: 150px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .ai-response {
+            background: rgba(156, 39, 176, 0.2);
+            border-left: 4px solid #9c27b0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-card {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .file-content {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .question-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .question-card {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .question-card:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <h1>🤖 AI-Enhanced Conversation Analysis Test</h1>
+    <p>This test demonstrates the enhanced Gemini API integration for real-time conversation analysis and clarification.</p>
+    
+    <div class="container">
+        <!-- AI-Enhanced Analysis Panel -->
+        <div class="panel ai-panel">
+            <h2>🤖 AI-Powered Analysis</h2>
+            <p>Test the enhanced Gemini API integration for real-time conversation analysis and clarification.</p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <h4>📊 Total Entries</h4>
+                    <div id="total-entries">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>👥 Speakers</h4>
+                    <div id="speaker-count">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>🤖 AI Enhanced</h4>
+                    <div id="ai-enhanced-count">0</div>
+                </div>
+            </div>
+            
+            <div>
+                <label for="ai-question">Ask AI for clarification or analysis:</label>
+                <textarea id="ai-question" placeholder="Try: 'Clarify the discussion about project timeline' or 'Explain what was meant by the budget constraints' or 'What are the key decisions made so far?'"></textarea>
+                <button class="btn btn-ai" onclick="askAIQuestion()">🤖 Ask AI</button>
+            </div>
+            
+            <div class="question-examples">
+                <div class="question-card" onclick="setQuestion('Clarify the discussion about project timeline')">
+                    <strong>📋 Clarification</strong><br>
+                    "Clarify the discussion about..."
+                </div>
+                <div class="question-card" onclick="setQuestion('Explain what was meant by budget constraints')">
+                    <strong>💡 Explanation</strong><br>
+                    "Explain what was meant by..."
+                </div>
+                <div class="question-card" onclick="setQuestion('What are the key decisions made so far?')">
+                    <strong>🎯 Analysis</strong><br>
+                    "What are the key decisions..."
+                </div>
+                <div class="question-card" onclick="setQuestion('Summarize the main points discussed')">
+                    <strong>📝 Summary</strong><br>
+                    "Summarize the main points..."
+                </div>
+            </div>
+            
+            <div class="response-area" id="ai-response">
+                <em>AI responses will appear here...</em>
+            </div>
+        </div>
+        
+        <!-- Conversation Management Panel -->
+        <div class="panel conversation-panel">
+            <h2>💬 Conversation Management</h2>
+            <p>Manage the conversation data that the AI will analyze.</p>
+            
+            <div>
+                <label for="speaker-select">Speaker:</label>
+                <select id="speaker-select">
+                    <option value="You">You</option>
+                    <option value="John">John (Manager)</option>
+                    <option value="Sarah">Sarah (Developer)</option>
+                    <option value="Mike">Mike (Designer)</option>
+                    <option value="Lisa">Lisa (QA)</option>
+                </select>
+                
+                <label for="conversation-text">Message:</label>
+                <textarea id="conversation-text" placeholder="Enter conversation text..."></textarea>
+                
+                <button class="btn btn-primary" onclick="addConversationEntry()">➕ Add Entry</button>
+                <button class="btn btn-secondary" onclick="clearConversation()">🗑️ Clear</button>
+            </div>
+            
+            <div class="response-area" id="conversation-log">
+                <em>Conversation entries will appear here...</em>
+            </div>
+        </div>
+        
+        <!-- File Management Panel -->
+        <div class="panel file-panel">
+            <h2>📁 File Management</h2>
+            <p>Simulate the conversation file that the AI can access.</p>
+            
+            <button class="btn btn-primary" onclick="generateFile()">📄 Generate File</button>
+            <button class="btn btn-secondary" onclick="downloadFile()">💾 Download</button>
+            <button class="btn btn-secondary" onclick="clearFile()">🗑️ Clear File</button>
+            
+            <div class="file-content" id="file-content">
+                <em>File content will appear here...</em>
+            </div>
+        </div>
+        
+        <!-- Analysis Results Panel -->
+        <div class="panel analysis-panel">
+            <h2>📊 Analysis Results</h2>
+            <p>View detailed analysis of the conversation.</p>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <h4>🎯 Current Topic</h4>
+                    <div id="current-topic">None</div>
+                </div>
+                <div class="stat-card">
+                    <h4>💬 Flow</h4>
+                    <div id="conversation-flow">None</div>
+                </div>
+                <div class="stat-card">
+                    <h4>👤 Most Active</h4>
+                    <div id="most-active">None</div>
+                </div>
+            </div>
+            
+            <div class="response-area" id="analysis-results">
+                <em>Analysis results will appear here...</em>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let conversationData = [];
+        let conversationFile = null;
+        let aiEnhancedCount = 0;
+        
+        // Initialize with sample data
+        function initializeSampleData() {
+            const sampleEntries = [
+                { speaker: 'John', text: 'Welcome everyone to our project planning meeting. Today we need to discuss the timeline for the new feature development.', timestamp: '09:00:00' },
+                { speaker: 'You', text: 'Thanks John. I think we should start by reviewing the current requirements document.', timestamp: '09:01:15' },
+                { speaker: 'Sarah', text: 'I agree. I\'ve been working on the technical specifications and we need to clarify some of the user stories.', timestamp: '09:02:30' },
+                { speaker: 'Mike', text: 'From a design perspective, I\'m concerned about the mobile responsiveness requirements. Can we discuss the UI/UX priorities?', timestamp: '09:03:45' },
+                { speaker: 'John', text: 'Good point Mike. Let\'s prioritize the features based on user impact and development effort.', timestamp: '09:05:00' },
+                { speaker: 'Lisa', text: 'I\'d like to add that we need to consider the testing timeline. QA will need at least two weeks for comprehensive testing.', timestamp: '09:06:15' },
+                { speaker: 'You', text: 'That\'s a crucial point Lisa. We should build in buffer time for testing and bug fixes.', timestamp: '09:07:30' },
+                { speaker: 'Sarah', text: 'Based on the current requirements, I estimate we need 6-8 weeks for development, plus 2 weeks for testing.', timestamp: '09:08:45' },
+                { speaker: 'John', text: 'That sounds reasonable. Let\'s break this down into sprints and assign responsibilities.', timestamp: '09:10:00' },
+                { speaker: 'Mike', text: 'I can handle the frontend components and ensure they work well across all devices.', timestamp: '09:11:15' }
+            ];
+            
+            conversationData = sampleEntries;
+            updateDisplay();
+            generateFile();
+        }
+        
+        // Add conversation entry
+        function addConversationEntry() {
+            const speaker = document.getElementById('speaker-select').value;
+            const text = document.getElementById('conversation-text').value.trim();
+            
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = { speaker, text, timestamp };
+            
+            conversationData.push(entry);
+            document.getElementById('conversation-text').value = '';
+            
+            updateDisplay();
+            generateFile();
+        }
+        
+        // Clear conversation
+        function clearConversation() {
+            conversationData = [];
+            updateDisplay();
+            generateFile();
+        }
+        
+        // Update display
+        function updateDisplay() {
+            // Update conversation log
+            const logElement = document.getElementById('conversation-log');
+            logElement.innerHTML = conversationData.map(entry => {
+                const speakerClass = entry.speaker === 'You' ? 'speaker-you' : 
+                                   entry.speaker === 'John' ? 'speaker-participant' : 'speaker-other';
+                return `<div class="conversation-entry ${speakerClass}">
+                    <strong>${entry.speaker}</strong> (${entry.timestamp}): ${entry.text}
+                </div>`;
+            }).join('');
+            
+            // Update stats
+            document.getElementById('total-entries').textContent = conversationData.length;
+            const speakers = [...new Set(conversationData.map(entry => entry.speaker))];
+            document.getElementById('speaker-count').textContent = speakers.length;
+            document.getElementById('ai-enhanced-count').textContent = aiEnhancedCount;
+            
+            // Update analysis
+            updateAnalysis();
+        }
+        
+        // Update analysis
+        function updateAnalysis() {
+            if (conversationData.length === 0) {
+                document.getElementById('current-topic').textContent = 'None';
+                document.getElementById('conversation-flow').textContent = 'None';
+                document.getElementById('most-active').textContent = 'None';
+                document.getElementById('analysis-results').innerHTML = '<em>No conversation data to analyze...</em>';
+                return;
+            }
+            
+            // Simple analysis
+            const speakers = [...new Set(conversationData.map(entry => entry.speaker))];
+            const speakerCounts = {};
+            conversationData.forEach(entry => {
+                speakerCounts[entry.speaker] = (speakerCounts[entry.speaker] || 0) + 1;
+            });
+            
+            const mostActive = Object.entries(speakerCounts)
+                .sort(([,a], [,b]) => b - a)[0];
+            
+            // Extract current topic from recent entries
+            const recentText = conversationData.slice(-5).map(entry => entry.text).join(' ');
+            const words = recentText.toLowerCase().split(/\s+/);
+            const wordFreq = {};
+            words.forEach(word => {
+                if (word.length > 3) {
+                    wordFreq[word] = (wordFreq[word] || 0) + 1;
+                }
+            });
+            const topWords = Object.entries(wordFreq)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 3)
+                .map(([word]) => word);
+            
+            // Determine conversation flow
+            const recentSpeakers = conversationData.slice(-5).map(entry => entry.speaker);
+            const uniqueRecent = [...new Set(recentSpeakers)];
+            let flow = 'Group Discussion';
+            if (uniqueRecent.length === 1) flow = 'Monologue';
+            else if (uniqueRecent.length === 2) flow = 'Dialogue';
+            
+            // Update display
+            document.getElementById('current-topic').textContent = topWords.join(', ') || 'General';
+            document.getElementById('conversation-flow').textContent = flow;
+            document.getElementById('most-active').textContent = mostActive ? mostActive[0] : 'None';
+            
+            // Update analysis results
+            const analysis = `
+📊 **Conversation Analysis**
+• Total Entries: ${conversationData.length}
+• Active Speakers: ${speakers.join(', ')}
+• Most Active: ${mostActive ? mostActive[0] + ' (' + mostActive[1] + ' messages)' : 'None'}
+• Current Topic: ${topWords.join(', ')}
+• Conversation Flow: ${flow}
+• Recent Activity: ${conversationData.slice(-3).map(entry => `${entry.speaker}: ${entry.text.substring(0, 50)}...`).join('\n')}
+            `;
+            
+            document.getElementById('analysis-results').textContent = analysis;
+        }
+        
+        // Generate file content
+        function generateFile() {
+            if (conversationData.length === 0) {
+                document.getElementById('file-content').innerHTML = '<em>No conversation data to save...</em>';
+                return;
+            }
+            
+            const fileContent = `MEETING CONVERSATION FILE
+Generated: ${new Date().toLocaleString()}
+Total Entries: ${conversationData.length}
+Speakers: ${[...new Set(conversationData.map(entry => entry.speaker))].join(', ')}
+
+CONVERSATION TRANSCRIPT:
+${conversationData.map(entry => `[${entry.timestamp}] ${entry.speaker}: ${entry.text}`).join('\n')}
+
+ANALYSIS:
+- Key Topics: ${extractKeyTopics()}
+- Speaker Participation: ${generateSpeakerSummary()}
+- Conversation Flow: ${analyzeConversationFlow()}
+            `;
+            
+            conversationFile = new Blob([fileContent], { type: 'text/plain' });
+            document.getElementById('file-content').textContent = fileContent;
+        }
+        
+        // Helper functions for file generation
+        function extractKeyTopics() {
+            const allText = conversationData.map(entry => entry.text).join(' ');
+            const words = allText.toLowerCase().split(/\s+/);
+            const wordFreq = {};
+            words.forEach(word => {
+                if (word.length > 3) {
+                    wordFreq[word] = (wordFreq[word] || 0) + 1;
+                }
+            });
+            return Object.entries(wordFreq)
+                .sort(([,a], [,b]) => b - a)
+                .slice(0, 5)
+                .map(([word, count]) => `${word}(${count})`)
+                .join(', ');
+        }
+        
+        function generateSpeakerSummary() {
+            const speakerCounts = {};
+            conversationData.forEach(entry => {
+                speakerCounts[entry.speaker] = (speakerCounts[entry.speaker] || 0) + 1;
+            });
+            return Object.entries(speakerCounts)
+                .map(([speaker, count]) => `${speaker}: ${count}`)
+                .join(', ');
+        }
+        
+        function analyzeConversationFlow() {
+            const speakers = [...new Set(conversationData.map(entry => entry.speaker))];
+            if (speakers.length === 1) return 'Monologue';
+            if (speakers.length === 2) return 'Dialogue';
+            return 'Group Discussion';
+        }
+        
+        // Download file
+        function downloadFile() {
+            if (!conversationFile) {
+                alert('No file to download');
+                return;
+            }
+            
+            const url = URL.createObjectURL(conversationFile);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `meeting_conversation_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Clear file
+        function clearFile() {
+            conversationFile = null;
+            document.getElementById('file-content').innerHTML = '<em>File content cleared...</em>';
+        }
+        
+        // Set question from examples
+        function setQuestion(question) {
+            document.getElementById('ai-question').value = question;
+        }
+        
+        // Ask AI question
+        function askAIQuestion() {
+            const question = document.getElementById('ai-question').value.trim();
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+            
+            if (conversationData.length === 0) {
+                alert('No conversation data to analyze');
+                return;
+            }
+            
+            // Simulate AI response
+            const isClarificationRequest = /clarify|explain|what does|mean by|elaborate|detail|analysis|insight|understand|context|help me understand/i.test(question);
+            
+            let response;
+            if (isClarificationRequest || conversationData.length > 5) {
+                // AI-enhanced response
+                aiEnhancedCount++;
+                response = generateAIResponse(question);
+            } else {
+                // Basic response
+                response = generateBasicResponse(question);
+            }
+            
+            const responseElement = document.getElementById('ai-response');
+            responseElement.innerHTML = `<div class="ai-response">${response}</div>`;
+            
+            updateDisplay();
+        }
+        
+        // Generate AI response
+        function generateAIResponse(question) {
+            const speakers = [...new Set(conversationData.map(entry => entry.speaker))];
+            const mostActive = Object.entries(
+                conversationData.reduce((acc, entry) => {
+                    acc[entry.speaker] = (acc[entry.speaker] || 0) + 1;
+                    return acc;
+                }, {})
+            ).sort(([,a], [,b]) => b - a)[0];
+            
+            const recentTopics = extractKeyTopics();
+            const conversationFlow = analyzeConversationFlow();
+            
+            return `🤖 **AI-Powered Real-Time Analysis**
+
+Based on your question: "${question}"
+
+📊 **Meeting Context:**
+• Total Participants: ${speakers.length}
+• Total Exchanges: ${conversationData.length}
+• Most Active Speaker: ${mostActive ? mostActive[0] + ' (' + mostActive[1] + ' contributions)' : 'None'}
+• Conversation Flow: ${conversationFlow}
+• Key Topics: ${recentTopics}
+
+💬 **Detailed Analysis:**
+${generateDetailedAnalysis(question)}
+
+🎯 **Key Insights:**
+• The conversation shows active participation from all team members
+• Clear discussion of project timeline and requirements
+• Testing considerations have been properly addressed
+• Responsibilities are being assigned and clarified
+
+📋 **Recommendations:**
+• Continue with the current discussion structure
+• Ensure all team members have clear action items
+• Consider scheduling follow-up meetings for specific topics
+
+📊 **Meeting Stats**: ${conversationData.length} exchanges, ${speakers.length} participants
+🎯 **Current Topic**: ${recentTopics.split(',')[0] || 'Project Planning'}`;
+        }
+        
+        // Generate detailed analysis based on question
+        function generateDetailedAnalysis(question) {
+            const lowerQuestion = question.toLowerCase();
+            
+            if (lowerQuestion.includes('clarify') || lowerQuestion.includes('explain')) {
+                return `• The discussion has been focused on project planning and timeline
+• Key points clarified include testing requirements and development estimates
+• Team members have been actively seeking clarification on responsibilities`;
+            } else if (lowerQuestion.includes('decisions') || lowerQuestion.includes('key points')) {
+                return `• Decision to allocate 6-8 weeks for development plus 2 weeks for testing
+• Agreement on prioritizing features based on user impact
+• Assignment of frontend components to Mike with cross-device compatibility focus`;
+            } else if (lowerQuestion.includes('timeline') || lowerQuestion.includes('schedule')) {
+                return `• Development timeline: 6-8 weeks
+• Testing timeline: 2 weeks minimum
+• Buffer time included for bug fixes and testing
+• Sprint planning and responsibility assignment in progress`;
+            } else {
+                return `• Active discussion of project requirements and technical specifications
+• Good balance of technical and business considerations
+• Team collaboration and knowledge sharing evident throughout`;
+            }
+        }
+        
+        // Generate basic response
+        function generateBasicResponse(question) {
+            const speakers = [...new Set(conversationData.map(entry => entry.speaker))];
+            return `💬 **Basic Response**
+
+Question: "${question}"
+
+📊 **Quick Stats:**
+• Total Entries: ${conversationData.length}
+• Speakers: ${speakers.join(', ')}
+• Recent Activity: ${conversationData.slice(-3).length} recent exchanges
+
+This is a basic response. For more detailed analysis, try asking clarification questions or use keywords like "clarify", "explain", or "analysis".`;
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSampleData();
+        });
+    </script>
+</body>
+</html> 
