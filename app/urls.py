@@ -22,4 +22,5 @@ urlpatterns = [
     path('update_meeting_folder/', views.update_meeting_folder, name='update_meeting_folder'),
     path('upload_folder/', views.upload_folder, name='upload_folder'),
     path('api/userinfo/', views.userinfo, name='userinfo'),#added by sumon
+    path('api/meet-status/', views.meeting_status, name='meet_status'),
 ]

@@ -30,26 +30,26 @@ const chatArea = document.getElementById("chat-area");
 const userInput = document.getElementById("user-input");
 const sendBtn = document.getElementById("send-btn");
 const micBtn = document.getElementById("mic-btn");
-const speechToggle = document.getElementById("speech-toggle");
 const googleSignInBtn = document.getElementById("google-signin-btn");
 const userInfoDiv = document.getElementById("user-info");
 const userNameSpan = document.getElementById("user-name");
 const logoutBtn = document.getElementById("logout-btn");
-const uiToggle = document.getElementById("ui-toggle");
-const activateMessage = document.getElementById("activate-message");
-const pluginToggleMessage = document.getElementById("plugin-toggle-message");
+const driveToggle = document.getElementById("drive-toggle");
+const meetingToggle = document.getElementById("meeting-toggle");
+const speechToggle = document.getElementById("speech-toggle");
 
 // --- State ---
 let meetings = [];
 let selectedMeeting = null;
-let speechReplies = false;
+let speechReplies = true;
 let isRecording = false;
+let isDriveMode = true;
 
 // --- Login Form Elements (dynamically created) ---
 let loginForm, emailInput, passwordInput, loginError;
 
+// --- Core Functions ---
 async function loadMeetings() {
-  console.log("Loading meetings...");
   try {
     const response = await fetch(API_CONFIG.MEETINGS_URL, {
       method: "GET",
@@ -58,33 +58,18 @@ async function loadMeetings() {
         "X-CSRFToken": getCSRFToken(),
       },
     });
-
     if (response.ok) {
       const data = await response.json();
-      meetings = data.events; // or data.meetings, depending on your API
-
-      // FIX: Call populateMeetings() with the new data from the API
+      meetings = data.events;
       populateMeetings();
     } else {
-      // FIX: Remove the fallback and just log an error
-      console.error("Failed to fetch meetings. Status:", response.status);
-      appendMessage(
-        "system",
-        "Error: Could not load meetings from the server."
-      );
+      appendMessage("system", "Error: Could not load meetings.");
     }
   } catch (error) {
-    // FIX: Remove the fallback and just log an error
-    console.error("Network error while fetching meetings:", error);
     appendMessage("system", "Error: Unable to connect to the server.");
   }
 }
 
-/**
- * Gets the CSRF token from the document's cookies.
- * Required for making secure POST requests to a Django backend.
- * @returns {string} The CSRF token, or an empty string if not found.
- */
 function getCSRFToken() {
   const cookieValue = document.cookie
     .split("; ")
@@ -93,55 +78,16 @@ function getCSRFToken() {
   return cookieValue || "";
 }
 
-function showLoginForm() {
-  if (loginForm) loginForm.remove();
-
-  loginForm = document.createElement("div");
-  loginForm.id = "login-form";
-  loginForm.innerHTML = `
-    <div class="form-group">
-      <input type="email" id="login-email" class="form-input" placeholder="Email" required />
-    </div>
-    <div class="form-group">
-      <input type="password" id="login-password" class="form-input" placeholder="Password" required />
-    </div>
-    <button type="submit" id="login-submit" class="btn-primary">Sign In</button>
-    <div id="login-error" class="hidden"></div>
-  `;
-
-  googleSignInBtn.insertAdjacentElement("afterend", loginForm);
-
-  emailInput = loginForm.querySelector("#login-email");
-  passwordInput = loginForm.querySelector("#login-password");
-  loginError = loginForm.querySelector("#login-error");
-
-  const loginSubmitBtn = loginForm.querySelector("#login-submit");
-  loginSubmitBtn.addEventListener("click", handleLoginSubmit);
-
-  [emailInput, passwordInput].forEach((input) => {
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") handleLoginSubmit(e);
-    });
-  });
-}
-
 async function handleLoginSubmit(e) {
   e.preventDefault();
   loginError.classList.add("hidden");
-
   const email = emailInput.value.trim();
   const password = passwordInput.value;
-
   if (!email || !password) {
     showError("Please enter both email and password.");
     return;
   }
-
-  const submitBtn = loginForm.querySelector("#login-submit");
-  const originalText = submitBtn.textContent;
-  submitBtn.innerHTML = '<div class="loading"></div>';
-  submitBtn.disabled = true;
-
+  // Simplified login logic
   try {
     const response = await fetch(API_CONFIG.CHECK_LOGIN_URL, {
       method: "POST",
@@ -152,9 +98,7 @@ async function handleLoginSubmit(e) {
       credentials: "include",
       body: JSON.stringify({ email, password }),
     });
-
     const data = await response.json();
-
     if (response.ok && data.success) {
       chrome.storage.local.set({ signedIn: true });
       if (loginForm) loginForm.remove();
@@ -162,38 +106,15 @@ async function handleLoginSubmit(e) {
       showMainUI();
       loadMeetings();
     } else {
-      showError(data.error || "Login failed. Please check your credentials.");
+      showError(data.error || "Login failed.");
     }
   } catch (err) {
-    showError("Network error. Could not connect to the server.");
-  } finally {
-    submitBtn.textContent = originalText;
-    submitBtn.disabled = false;
+    showError("Network error.");
   }
-}
-
-function showError(message) {
-  if (loginError) {
-    loginError.textContent = message;
-    loginError.classList.remove("hidden");
-  }
-}
-
-// NOTE: This is a mock function. Replace with a real API call.
-async function fetchMeetings() {
-  // Replace this with: const response = await fetch(API_CONFIG.MEETINGS_URL);
-  // meetings = await response.json();
-  meetings = [
-    { id: "1", title: "Team Sync - Tuesday" },
-    { id: "2", title: "Project Kickoff" },
-    { id: "3", title: "1:1 with Manager" },
-  ];
-  populateMeetings();
 }
 
 async function callAPI(message, folder) {
   try {
-    console.log("Calling API with message:", message, "and folder:", folder);
     const response = await fetch(API_CONFIG.CHAT_API_URL, {
       method: "POST",
       headers: {
@@ -202,16 +123,12 @@ async function callAPI(message, folder) {
       },
       body: JSON.stringify({ message, folder }),
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
     const data = await response.json();
     return data.response || data.message || "No response received";
   } catch (error) {
     console.error("API Call Error:", error);
-    return "Sorry, I encountered an error. Please try again.";
+    return "Sorry, an error occurred.";
   }
 }
 
@@ -233,71 +150,24 @@ function populateMeetings() {
     const option = document.createElement("option");
     option.value = meeting.id;
     option.textContent = meeting.title;
-    console.log("Adding meeting option:", option.textContent);
     meetingSelect.appendChild(option);
   });
 }
 
-// Change the meetingSelect event listener
-meetingSelect.addEventListener("change", () => {
-  // Use toString() for consistent type comparison
-  selectedMeeting = meetings.find(
-    (m) => m.id.toString() === meetingSelect.value
-  );
-
-  if (selectedMeeting) {
-    appendMessage("system", `Switched to meeting: ${selectedMeeting.title}`);
-  }
-});
-
-// --- Chat Logic ---
-function appendMessage(sender, text, folder) {
+function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
-  messageDiv.className = `message ${
-    sender === "You" ? "user" : sender === "system" ? "system" : "assistant"
-  }`;
-
-  if (sender === "system") {
-    messageDiv.style.cssText =
-      "background: #e2e8f0; color: #4a5568; text-align: center; font-style: italic; margin: 8px auto; max-width: 90%;";
-  }
-
-  messageDiv.textContent =
-    sender === "system"
-      ? text
-      : `${sender === "You" ? "You: " : "Assistant: "}${text}`;
+  messageDiv.className = `message ${sender.toLowerCase()}`;
+  messageDiv.textContent = text;
   chatArea.appendChild(messageDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
-async function handleSend() {
+// --- Event Handlers ---
+function handleSend() {
   const message = userInput.value.trim();
   if (!message) return;
-
-  if (!selectedMeeting) {
-    appendMessage("system", "Please select a meeting first.");
-    return;
-  }
-
-  appendMessage("You", message);
   userInput.value = "";
-  sendBtn.disabled = true;
-
-  const typingDiv = document.createElement("div");
-  typingDiv.className = "message assistant";
-  typingDiv.innerHTML = 'Assistant is typing... <div class="loading"></div>';
-  chatArea.appendChild(typingDiv);
-  chatArea.scrollTop = chatArea.scrollHeight;
-
-  const reply = await callAPI(message, selectedMeeting.folder);
-
-  chatArea.removeChild(typingDiv);
-  appendMessage("Assistant", reply);
-  sendBtn.disabled = false;
-
-  if (speechReplies) {
-    speak(reply);
-  }
+  processRequest(message);
 }
 
 sendBtn.addEventListener("click", handleSend);
@@ -308,10 +178,21 @@ userInput.addEventListener("keydown", (e) => {
   }
 });
 
-// --- Speech Recognition (Web Speech API) ---
+meetingSelect.addEventListener("change", () => {
+  selectedMeeting = meetings.find(
+    (m) => m.id.toString() === meetingSelect.value
+  );
+  if (selectedMeeting) {
+    appendMessage("system", `Switched to meeting: ${selectedMeeting.title}`);
+  }
+});
+
+// --- Speech Recognition ---
 let recognition;
 if ("webkitSpeechRecognition" in window) {
-  recognition = new webkitSpeechRecognition();
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
   recognition.continuous = false;
   recognition.interimResults = false;
   recognition.lang = "en-US";
@@ -319,34 +200,57 @@ if ("webkitSpeechRecognition" in window) {
   recognition.onstart = () => {
     isRecording = true;
     micBtn.classList.add("recording");
-    micBtn.title = "Recording... Click to stop";
   };
 
   recognition.onend = () => {
     isRecording = false;
     micBtn.classList.remove("recording");
-    micBtn.title = "Voice input";
   };
 
   recognition.onresult = (event) => {
-    userInput.value = event.results[0][0].transcript;
-    handleSend();
+    const transcript = event.results[0][0].transcript;
+    userInput.value = transcript;
+    userInput.focus();
+    //processRequest(transcript);
   };
 
   recognition.onerror = (event) => {
-    appendMessage("system", `Speech recognition error: ${event.error}`);
+    appendMessage("system", `Speech error: ${event.error}`);
   };
 }
 
 micBtn.addEventListener("click", () => {
-  if (!recognition) {
-    return appendMessage(
-      "system",
-      "Speech recognition not supported in this browser."
-    );
-  }
+  if (!recognition)
+    return appendMessage("system", "Speech recognition not supported.");
   isRecording ? recognition.stop() : recognition.start();
 });
+
+async function processRequest(text) {
+  if (!selectedMeeting) {
+    appendMessage("system", "Please select a meeting first.");
+    return;
+  }
+  appendMessage("User", text);
+
+  sendBtn.disabled = true;
+  micBtn.disabled = true;
+  const typingDiv = document.createElement("div");
+  typingDiv.className = "message assistant";
+  typingDiv.innerHTML = '<div class="loading"></div>';
+  chatArea.appendChild(typingDiv);
+  chatArea.scrollTop = chatArea.scrollHeight;
+
+  const reply = await callAPI(text, selectedMeeting.folder);
+
+  chatArea.removeChild(typingDiv);
+  appendMessage("Assistant", reply);
+  sendBtn.disabled = false;
+  micBtn.disabled = false;
+
+  if (speechReplies) {
+    speak(reply);
+  }
+}
 
 // --- Speech Synthesis ---
 function speak(text) {
@@ -359,20 +263,53 @@ function speak(text) {
   window.speechSynthesis.speak(utter);
 }
 
+// --- Toggle Logic ---
+function handleToggleSwitch(activateMode) {
+  isDriveMode = activateMode === "drive";
+  driveToggle.classList.toggle("active", isDriveMode);
+  meetingToggle.classList.toggle("active", !isDriveMode);
+  // The functionality is now the same, so we only update the visual state and a system message.
+  chrome.storage.local.set({ isDriveMode });
+}
+
+driveToggle.addEventListener("click", () => {
+  if (!isDriveMode) handleToggleSwitch("drive");
+});
+
+meetingToggle.addEventListener("click", () => {
+  if (isDriveMode) handleToggleSwitch("meeting");
+});
+
 speechToggle.addEventListener("click", () => {
   speechReplies = !speechReplies;
   speechToggle.classList.toggle("active", speechReplies);
   chrome.storage.local.set({ speechReplies });
 });
 
-// --- Authentication and User Info ---
-signInBtn.addEventListener("click", showLoginForm);
-
-if (googleSignInBtn) {
-  googleSignInBtn.addEventListener("click", () => {
-    chrome.tabs.create({ url: API_CONFIG.GOOGLE_LOGIN_URL });
-  });
+// --- Authentication ---
+// Simplified auth functions
+function showLoginForm() {
+  if (loginForm) loginForm.remove();
+  loginForm = document.createElement("div");
+  loginForm.id = "login-form";
+  loginForm.innerHTML = `
+    <input type="email" id="login-email" class="form-input" placeholder="Email" required />
+    <input type="password" id="login-password" class="form-input" placeholder="Password" required />
+    <button type="submit" id="login-submit" class="btn-primary">Sign In</button>
+    <div id="login-error" class="hidden"></div>
+  `;
+  googleSignInBtn.insertAdjacentElement("afterend", loginForm);
+  emailInput = loginForm.querySelector("#login-email");
+  passwordInput = loginForm.querySelector("#login-password");
+  loginError = loginForm.querySelector("#login-error");
+  loginForm
+    .querySelector("#login-submit")
+    .addEventListener("click", handleLoginSubmit);
 }
+signInBtn.addEventListener("click", showLoginForm);
+googleSignInBtn.addEventListener("click", () =>
+  chrome.tabs.create({ url: API_CONFIG.GOOGLE_LOGIN_URL })
+);
 
 async function fetchUserInfo() {
   try {
@@ -393,7 +330,6 @@ function showUserInfo(name) {
 
 function hideUserInfo() {
   userInfoDiv.style.display = "none";
-  userNameSpan.textContent = "";
 }
 
 async function handleLogout() {
@@ -402,66 +338,37 @@ async function handleLogout() {
   } catch (e) {
     console.error("Error during logout:", e);
   }
-
   chrome.storage.local.set({ signedIn: false });
   hideUserInfo();
   showSignIn();
   chatArea.innerHTML = "";
   meetingSelect.innerHTML = '<option value="">Select a meeting...</option>';
   selectedMeeting = null;
-
-  broadcastLogoutToChatbotTabs();
 }
+logoutBtn.addEventListener("click", handleLogout);
 
-function broadcastLogoutToChatbotTabs() {
-  chrome.runtime.sendMessage({ type: "BROADCAST_LOGOUT" });
-}
-
-if (logoutBtn) {
-  logoutBtn.addEventListener("click", handleLogout);
-}
-
-// --- Initialization and UI Toggling ---
-function setUIState(active) {
-  document.body.classList.toggle("ui-inactive", !active);
-  uiToggle.classList.toggle("active", active);
-  uiToggle.classList.toggle("inactive", !active);
-
-  if (activateMessage)
-    activateMessage.style.display = active ? "none" : "block";
-  if (pluginToggleMessage) {
-    pluginToggleMessage.textContent = active
-      ? "Disable Plugin"
-      : "Activate Plugin";
-  }
-}
-
-uiToggle.addEventListener("click", () => {
-  const isActive = !uiToggle.classList.contains("inactive");
-  setUIState(!isActive);
-  chrome.storage.local.set({ uiActive: !isActive });
-});
-
+// --- Initialization ---
 async function init() {
   const result = await chrome.storage.local.get([
     "signedIn",
+    "isDriveMode",
     "speechReplies",
-    "uiActive",
   ]);
-
-  const uiActive = result.uiActive !== false; // Default to true
-  setUIState(uiActive);
-
-  speechReplies = !!result.speechReplies;
-  if (speechToggle) speechToggle.classList.toggle("active", speechReplies);
-
-  if (!uiActive) return;
-
   const user = await fetchUserInfo();
   if (user && user.name) {
     showUserInfo(user.name);
     showMainUI();
-    loadMeetings();
+    await loadMeetings();
+
+    isDriveMode = result.isDriveMode !== false;
+    driveToggle.classList.toggle("active", isDriveMode);
+    meetingToggle.classList.toggle("active", !isDriveMode);
+
+    speechReplies = result.speechReplies !== false;
+    speechToggle.classList.toggle("active", speechReplies);
+
+    chatArea.innerHTML = "";
+    appendMessage("system", `Welcome, ${user.name}! Please select a meeting.`);
   } else {
     hideUserInfo();
     showSignIn();

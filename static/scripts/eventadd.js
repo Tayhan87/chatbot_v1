@@ -1,26 +1,76 @@
+// Sidebar and UI Interaction Logic
+document.addEventListener("DOMContentLoaded", () => {
+  const sidebar = document.getElementById("sidebar");
+  const sidebarToggle = document.getElementById("sidebarToggle");
+  const closeSidebar = document.getElementById("closeSidebar");
+  const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+  const openSidebar = () => {
+    sidebar.classList.remove("sidebar-closed");
+    sidebar.classList.add("sidebar-open");
+    sidebarOverlay.classList.remove("hidden");
+  };
+
+  const closeSide = () => {
+    sidebar.classList.add("sidebar-closed");
+    sidebar.classList.remove("sidebar-open");
+    sidebarOverlay.classList.add("hidden");
+  };
+
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openSidebar();
+    });
+  }
+
+  if (closeSidebar) closeSidebar.addEventListener("click", closeSide);
+  if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSide);
+
+  // Dummy functionality for sidebar buttons
+  const aiChatBtn = document.getElementById("aiChatBtn");
+  if (aiChatBtn)
+    aiChatBtn.addEventListener("click", () =>
+      alert("AI Chat Assistant clicked!")
+    );
+
+  const googleDriveBtn = document.getElementById("google-drive-btn");
+  if (googleDriveBtn)
+    googleDriveBtn.addEventListener("click", () =>
+      alert("Google Drive clicked!")
+    );
+
+  const manageMeetingsBtn = document.getElementById("manageMeetingsBtn");
+  if (manageMeetingsBtn)
+    manageMeetingsBtn.addEventListener("click", () =>
+      alert("Manage Meetings clicked!")
+    );
+});
+
 class MeetingManager {
   constructor() {
     this.meetings = [];
     this.folders = [];
     this.currentEditingId = null;
     this.init();
-    // this.loadMeetings();
     this.folderList().then(() => this.loadMeetings());
   }
 
   init() {
-    document
-      .getElementById("addMeetingBtn")
-      .addEventListener("click", () => this.openAddModal());
-    document
-      .getElementById("closeModal")
-      .addEventListener("click", () => this.closeModal());
-    document
-      .getElementById("cancelBtn")
-      .addEventListener("click", () => this.closeModal());
-    document
-      .getElementById("meetingForm")
-      .addEventListener("submit", (e) => this.handleSubmit(e));
+    const addMeetingBtn = document.getElementById("addMeetingBtn");
+    if (addMeetingBtn)
+      addMeetingBtn.addEventListener("click", () => this.openAddModal());
+
+    const closeModalBtn = document.getElementById("closeModal");
+    if (closeModalBtn)
+      closeModalBtn.addEventListener("click", () => this.closeModal());
+
+    const cancelBtn = document.getElementById("cancelBtn");
+    if (cancelBtn) cancelBtn.addEventListener("click", () => this.closeModal());
+
+    const meetingForm = document.getElementById("meetingForm");
+    if (meetingForm)
+      meetingForm.addEventListener("submit", (e) => this.handleSubmit(e));
   }
 
   // Load meetings from Django backend
@@ -33,20 +83,17 @@ class MeetingManager {
           "X-CSRFToken": this.getCSRFToken(),
         },
       });
-      // console.log("Response from backend:", response);
 
       if (response.ok) {
         const data = await response.json();
         this.meetings = data.events;
-        console.log(this.meetings);
-        // await this.folderList();
         this.renderMeetings();
+        this.renderTodaysMeetings(); // Render today's meetings in the sidebar
       } else {
-        // Fallback to sample data for demo
-        console.log("Failed to fetch meetings, using sample data");
+        console.error("Failed to fetch meetings, using sample data");
       }
     } catch (error) {
-      console.log("Backend not available, using sample data");
+      console.error("Backend not available, using sample data", error);
     }
   }
 
@@ -129,7 +176,6 @@ class MeetingManager {
     document.getElementById("meetingForm").reset();
     this.currentEditingId = null;
     document.getElementById("meetingModal").classList.remove("hidden");
-    // Clear any previous error messages
     this.clearFormErrors();
   }
 
@@ -191,15 +237,16 @@ class MeetingManager {
     const form = document.getElementById("meetingForm");
     const errorDiv = document.createElement("div");
     errorDiv.id = "formErrors";
-    errorDiv.className = "text-red-500 mb-2";
+    errorDiv.className =
+      "text-red-500 mb-2 p-3 bg-red-900 bg-opacity-50 rounded-lg";
     errorDiv.setAttribute("role", "alert");
     errorDiv.setAttribute("aria-live", "assertive");
-    errorDiv.innerHTML = errors.map((e) => `<div>${e}</div>`).join("");
+    errorDiv.innerHTML = errors.map((e) => `<div>- ${e}</div>`).join("");
     form.prepend(errorDiv);
     errors.forEach((err) => {
-      const match = err.match(/'(.*?)'/);
-      if (match) {
-        const el = document.getElementById(match[1]);
+      const fieldIdMatch = err.match(/'(.*?)'/);
+      if (fieldIdMatch) {
+        const el = document.getElementById(fieldIdMatch[1]);
         if (el) el.setAttribute("aria-invalid", "true");
       }
     });
@@ -221,7 +268,6 @@ class MeetingManager {
     const platform = document.getElementById("meetingPlatform").value;
     const reminder = document.getElementById("meetingReminder").value;
 
-    // Required fields
     if (!title) errors.push("'meetingTitle' is required.");
     if (!date) errors.push("'meetingDate' is required.");
     if (!time) errors.push("'meetingTime' is required.");
@@ -231,44 +277,25 @@ class MeetingManager {
     if (!reminder) errors.push("'meetingReminder' is required.");
     if (!folder) errors.push("'meetingFolder' is required.");
 
-    // End time must be after start time
-    if (time && duration) {
-      const [h, m] = time.split(":").map(Number);
-      const start = new Date(date + "T" + time);
-      const end = new Date(start.getTime() + parseInt(duration) * 60000);
-      if (end <= start) {
-        errors.push("End time must be after start time.");
+    if (link && platform) {
+      try {
+        new URL(link);
+      } catch (_) {
+        errors.push("Meeting link must be a valid URL.");
       }
     }
 
-    // Meeting link must be a valid URL
-    if (link) {
-      const zoomRegex = /^https:\/\/(?:www\.)?zoom\.us\/j\/\d+$/;
-      const meetRegex =
-        /^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/;
-      if (
-        (platform === "Zoom" && !zoomRegex.test(link)) ||
-        (platform === "Meet" && !meetRegex.test(link)) ||
-        (platform !== "Zoom" && platform !== "Meet")
-      ) {
-        errors.push("Meeting link must be a valid " + platform + " URL.");
-      }
-    }
-
-    // Date can't be in the past
     const today = new Date();
-    const selectedDate = new Date(date + "T" + (time || "00:00"));
-    if (date && selectedDate < today.setHours(0, 0, 0, 0)) {
-      errors.push(
-        "You cannot schedule a meeting in the past. Please select today or a future date."
-      );
+    today.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(date);
+    if (date && selectedDate < today) {
+      errors.push("You cannot schedule a meeting in the past.");
     }
 
     if (errors.length > 0) {
       this.showFormErrors(errors);
       return;
     }
-    console.log("Time:", time);
 
     const meetingData = {
       title,
@@ -285,36 +312,32 @@ class MeetingManager {
     const submitBtn = document.getElementById("submitBtn");
     const originalContent = submitBtn.innerHTML;
     submitBtn.innerHTML = `
-  <div class="flex items-center justify-center space-x-2">
-    <div class="w-5 h-5 border-2 border-[#4FC1E9] border-t-transparent rounded-full animate-spin"></div>
-    <span>Saving...</span>
-  </div>
-`;
+      <div class="flex items-center justify-center space-x-2">
+        <div class="w-5 h-5 border-2 border-[#4FC1E9] border-t-transparent rounded-full animate-spin"></div>
+        <span>Saving...</span>
+      </div>
+    `;
 
     submitBtn.disabled = true;
 
     const success = await this.saveMeeting(meetingData);
 
+    submitBtn.innerHTML = originalContent;
+    submitBtn.disabled = false;
+
     if (success) {
       await this.folderList();
       this.closeModal();
-      submitBtn.innerHTML = originalContent;
-      submitBtn.disabled = false;
     }
   }
 
   formatDate(dateStr) {
-    // Accepts 'YYYY-MM-DD' or ISO string
     if (!dateStr) return "";
-    let dateObj;
-    if (dateStr.length === 10) {
-      // 'YYYY-MM-DD'
-      dateObj = new Date(dateStr + "T00:00:00");
-    } else {
-      dateObj = new Date(dateStr);
-    }
-    if (isNaN(dateObj)) return "Invalid Date";
-    return dateObj.toLocaleDateString("en-BD", {
+    const dateObj = new Date(dateStr);
+    const userTimezoneOffset = dateObj.getTimezoneOffset() * 60000;
+    const correctedDate = new Date(dateObj.getTime() + userTimezoneOffset);
+    if (isNaN(correctedDate)) return "Invalid Date";
+    return correctedDate.toLocaleDateString("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -322,16 +345,10 @@ class MeetingManager {
   }
 
   formatTime(timeStr) {
-    // Accepts 'HH:MM' or ISO string
     if (!timeStr) return "";
-    if (/^\d{2}:\d{2}$/.test(timeStr)) {
-      // 'HH:MM' format
-      return timeStr;
-    }
-    // Try to parse as ISO string
-    const dateObj = new Date(timeStr);
-    if (isNaN(dateObj)) return "Invalid Time";
-    return dateObj.toLocaleTimeString("en-BD", {
+    const date = new Date(`1970-01-01T${timeStr}`);
+    if (isNaN(date)) return "Invalid Time";
+    return date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: true,
@@ -352,24 +369,128 @@ class MeetingManager {
         const data = await response.json();
         this.folders = data.folders;
 
-        const folder = this.folders.find((info) => info.id == folderValue);
-        return folder ? folder.name : "No Folder";
+        const folderSelect = document.getElementById("meetingFolder");
+        folderSelect.innerHTML =
+          '<option value="">Select folder for information extraction</option>';
+        this.folders.forEach((folder) => {
+          const option = document.createElement("option");
+          option.value = folder.id;
+          option.textContent = folder.name;
+          folderSelect.appendChild(option);
+        });
       } else {
-        console.log("Failed to fetch folder information.");
+        console.error("Failed to fetch folder information.");
       }
     } catch (error) {
-      console.log("Didn't get any folder information", error);
+      console.error("Didn't get any folder information", error);
     }
   }
 
   getFolderDisplayName(folderValue) {
-    // Use `find` instead of `forEach` for searching the folder
     const folder = this.folders.find((info) => info.id == folderValue);
     return folder ? folder.name : "No Folder";
   }
 
   renderMeetings() {
     const container = document.getElementById("meetingsList");
+    if (!container) return;
+
+    this.meetings.sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time || "00:00"}`);
+      const dateB = new Date(`${b.date}T${b.time || "00:00"}`);
+      return dateA - dateB;
+    });
+
+    if (this.meetings.length === 0) {
+      container.innerHTML =
+        '<div class="text-gray-300 text-center py-4">No meetings scheduled. Add one to get started!</div>';
+      return;
+    }
+    container.innerHTML = this.meetings
+      .map(
+        (meeting) => `
+      <div class="meeting-card rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="flex-1">
+          <h4 class="text-white font-medium text-lg mb-1">${meeting.title}</h4>
+          <div class="text-gray-300 text-sm mb-1">
+            ${this.formatDate(meeting.date)} at ${this.formatTime(meeting.time)}
+            ${meeting.duration ? `&bull; ${meeting.duration} min` : ""}
+            ${meeting.platform ? `&bull; ${meeting.platform}` : ""}
+          </div>
+          ${
+            meeting.description
+              ? `<div class="text-gray-400 text-sm mb-1">${meeting.description}</div>`
+              : ""
+          }
+           <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2">
+          ${
+            meeting.link
+              ? `<a href="${meeting.link}" target="_blank" class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm transition-colors"><svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"/></svg>Join Meeting</a>`
+              : ""
+          }
+          ${
+            meeting.folder
+              ? `<a href="https://drive.google.com/drive/folders/${
+                  meeting.folder
+                }" target="_blank" class="inline-flex items-center text-green-400 hover:text-green-300 text-sm transition-colors" title="Open Drive Folder"><svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24"><path d="M10,4H4C2.89,4 2,4.89 2,6V18C2,19.11 2.89,20 4,20H20C21.11,20 22,19.11 22,18V8C22,6.89 21.11,6 20,6H12L10,4Z" /></svg>${this.getFolderDisplayName(
+                  meeting.folder
+                )}</a>`
+              : ""
+          }
+          </div>
+          ${
+            meeting.reminder && meeting.reminder !== "none"
+              ? `<div class="text-xs text-gray-400 mt-2">Reminder: ${this.getReminderText(
+                  meeting.reminder
+                )}</div>`
+              : ""
+          }
+        </div>
+        <div class="flex space-x-2 mt-4 md:mt-0 md:ml-4 self-start md:self-center">
+           <button onclick="meetingManager.openEditModal('${meeting.id}')"
+            class="action-btn bg-yellow-400 text-black rounded-full p-2 hover:bg-yellow-500 shadow"
+            aria-label="Edit meeting">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+              <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <button onclick="meetingManager.deleteMeeting('${meeting.id}')"
+            class="action-btn bg-red-500 text-white rounded-full p-2 hover:bg-red-600 shadow"
+            aria-label="Delete meeting">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+  }
+  async meeting_status() {
+    try {
+      const response = await fetch("/api/meet-status/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": this.getCSRFToken(),
+        },
+        body: JSON.stringify({ status: "clicked" }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Meeting status updated:", data);
+      } else {
+        console.error("Failed response from meeting status endpoint");
+      }
+    } catch (error) {
+      console.error("Didn't get any folder information", error);
+    }
+  }
+  renderTodaysMeetings() {
+    const container = document.getElementById("sidebarTodaysMeetings");
     if (!container) return;
     if (this.meetings.length === 0) {
       container.innerHTML =
@@ -379,7 +500,7 @@ class MeetingManager {
     container.innerHTML = this.meetings
       .map(
         (meeting) => `
-      <div class="meeting-card rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between">
+      <div class="meeting-card rounded-lg p-3 flex flex-col md:flex-row md:items-center md:justify-between">
         <div class="flex-1">
           <h4 class="text-white font-medium text-lg mb-1">${meeting.title}</h4>
           <div class="text-gray-300 text-sm mb-1">
@@ -457,3 +578,26 @@ class MeetingManager {
 }
 
 const meetingManager = new MeetingManager();
+
+// FIX: Corrected logout logic
+const logoutBtn = document.getElementById("logoutBtn");
+if (logoutBtn) {
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      // FIX: Use the existing meetingManager instance to get the CSRF token
+      const csrfToken = meetingManager.getCSRFToken();
+
+      await fetch("/signout/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken,
+        },
+      });
+    } catch (e) {
+      console.error("Logout failed:", e);
+    }
+    // Redirect to login page after attempting to sign out
+    window.location.href = "/login/";
+  });
+}

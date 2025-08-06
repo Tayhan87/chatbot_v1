@@ -8,10 +8,7 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": [
-    "storage",
-    "tabs"
-  ],
+  "permissions": ["storage", "tabs", "microphone"],
   "host_permissions": [
     "http://localhost:8000/*",
     "https://your-backend-domain.com/*"
@@ -32,6 +29,10 @@
     {
       "matches": ["http://127.0.0.1:8000/chatbot/*"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["https://meet.google.com/*"],
+      "js": ["content.js", "meetTracker.js"]
     }
   ]
-} 
+}

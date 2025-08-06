@@ -6,19 +6,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Meeting Manager</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Enhanced CSS included -->
     <link rel="stylesheet" href="{% static 'css/eventadd.css' %}" />
   </head>
-  <body class="min-h-screen bg-image">
-    <!-- Refresh Button Top Right -->
+  <!-- FIX: Added text-sm to make the base font size smaller -->
+  <body class="min-h-screen bg-image text-sm">
+    <!-- Dark overlay for better contrast -->
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-60"></div>
+
+    <!-- Mobile sidebar toggle -->
     <button
-      id="refreshEventaddBtn"
-      title="Refresh"
-      onclick="location.reload()"
-      class="fixed top-6 right-6 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold"
+      id="sidebarToggle"
+      class="md:hidden fixed top-6 left-6 z-50 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg shadow-lg"
+    >
+      <svg
+        class="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M4 6h16M4 12h16M4 18h16"
+        ></path>
+      </svg>
+    </button>
+
+    <button
+      onclick="window.history.back()"
+      class="fixed top-4 left-4 md:left-[calc(20rem+1rem)] z-40 bg-gray-800 bg-opacity-50 hover:bg-gray-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors flex items-center text-sm shadow-lg"
+      title="Back"
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        class="h-5 w-5 text-white"
+        class="h-4 w-4 mr-1.5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M10 19l-7-7m0 0l7-7m-7 7h18"
+        />
+      </svg>
+      <span>Back</span>
+    </button>
+    <button
+      onclick="location.reload()"
+      class="fixed top-4 right-4 z-40 bg-gray-800 bg-opacity-50 hover:bg-gray-700 text-white font-medium py-1.5 px-3 rounded-lg transition-colors flex items-center text-sm shadow-lg"
+      title="Refresh"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-4 w-4 mr-1.5"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -32,31 +76,41 @@
       </svg>
       <span>Refresh</span>
     </button>
-    <!-- Back Button -->
-    <button
-      onclick="window.history.back()"
-      class="absolute top-6 left-6 bg-gradient-to-r from-blue-500 to-blue-700 text-white px-5 py-2 rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-300 z-50 font-semibold flex items-center gap-2"
-    >
-      <span class="text-xl">⬅️</span> <span>Back</span>
-    </button>
-    <!-- Dark overlay for better contrast -->
-    <div class="absolute inset-0 bg-gray-900 bg-opacity-60"></div>
-    <div class="relative z-10 max-w-3xl mx-auto p-6">
-      <!-- Header -->
-      <div class="glass-effect rounded-3xl shadow-2xl p-8 mb-6">
-        <div class="flex justify-between items-center">
-          <div>
-            <h1 class="text-3xl font-bold text-white mb-2 flex items-center">
-              Meeting Manager
-              <button
-                id="refreshEventaddBtn"
-                title="Refresh"
-                onclick="location.reload()"
-                class="ml-2 p-2 rounded-full bg-gray-700 hover:bg-blue-500 transition-colors"
+
+    <div class="relative z-10 flex min-h-screen">
+      <!-- Sidebar -->
+      <aside
+        id="sidebar"
+        class="sidebar sidebar-toggle sidebar-closed fixed md:static inset-y-0 left-0 z-30 w-80 flex-shrink-0 sidebar-transition"
+      >
+        <div class="flex flex-col h-full p-6">
+          <div class="flex-1">
+            <!-- Close button for mobile -->
+            <button
+              id="closeSidebar"
+              class="md:hidden absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <svg
+                class="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+
+            <!-- Drive Links for Today's Meetings -->
+            <div class="mb-6">
+              <h3 class="text-lg font-bold text-white mb-3 flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-5 w-5 text-white"
+                  class="h-6 w-6 text-blue-300"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -65,37 +119,120 @@
                     stroke-linecap="round"
                     stroke-linejoin="round"
                     stroke-width="2"
-                    d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 1021 12.001M19.364 18.364A9 9 0 016.635 5.636"
+                    d="M8 7V3M16 7V3M4 11H20M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM9 16l2 2 4-4"
                   />
                 </svg>
-              </button>
-            </h1>
-            <p class="text-gray-300">
-              Manage your meetings with Google Calendar integration
+                <span class="ml-5">Today's Meetings</span>
+              </h3>
+              <div
+                id="sidebarTodaysMeetings"
+                class="bg-gray-800 bg-opacity-70 rounded-lg p-3 max-h-60 overflow-y-auto text-sm space-y-2"
+              >
+                <div class="text-gray-400 text-center py-2">
+                  Loading today's meetings...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer info -->
+          <div class="border-t border-gray-700 pt-4">
+            <!-- FIX: Removed onclick attribute to let the JS file handle the event -->
+            <button
+              id="logoutBtn"
+              class="w-full flex items-center justify-center space-x-2 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold py-2 px-4 rounded-xl mb-4 shadow-lg focus:outline-none hover:shadow-xl transition-all duration-300 hover:scale-105"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span>Logout</span>
+            </button>
+            <p class="text-xs text-gray-400 text-center">
+              Meeting Manager v1.0<br />
+              Integrated with Google Calendar
             </p>
           </div>
-          <button
-            id="addMeetingBtn"
-            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
-          >
-            <span class="mr-2">➕</span> Add Meeting
-          </button>
         </div>
-      </div>
-      <!-- Meetings List -->
-      <div class="glass-effect rounded-3xl shadow-2xl p-8">
-        <h2 class="text-2xl font-bold text-white mb-6">Your Meetings</h2>
-        <div id="meetingsList" class="space-y-4 max-h-[600px] overflow-y-auto">
-          <!-- Meetings will be rendered here by JS -->
+      </aside>
+
+      <!-- Sidebar overlay for mobile -->
+      <div
+        id="sidebarOverlay"
+        class="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20 hidden"
+      ></div>
+
+      <!-- Main Content -->
+      <main class="flex-1 p-6 mt-10 md:ml-80 flex flex-col items-center">
+        <div class="w-full max-w-7xl">
+          <!-- Header -->
+          <div class="glass-effect rounded-3xl shadow-2xl p-8 mb-6">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+              <div>
+                <h1 class="text-3xl font-bold text-white">Meeting Manager</h1>
+                <p class="text-gray-300 mt-1">
+                  Manage your meetings with Google Calendar integration
+                </p>
+              </div>
+              <div class="flex items-center">
+                <button
+                  id="addMeetingBtn"
+                  class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 md:mr-2"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                    />
+                  </svg>
+                  <span class="hidden md:inline">Add Meeting</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Meetings List -->
+          <div class="glass-effect rounded-3xl shadow-2xl p-8">
+            <h2 class="text-2xl font-bold text-white mb-6">Your Meetings</h2>
+            <div
+              id="meetingsList"
+              class="space-y-4 max-h-[600px] overflow-y-auto"
+            >
+              <div class="text-gray-300 text-center py-4">
+                Loading meetings...
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
+
     <!-- Add/Edit Meeting Modal -->
     <div
       id="meetingModal"
       class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50"
     >
-      <div class="glass-effect rounded-3xl shadow-2xl p-8 w-full max-w-2xl">
+      <div
+        class="glass-effect rounded-3xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+      >
         <div class="flex justify-between items-center mb-6">
           <h3 id="modalTitle" class="text-2xl font-bold text-white">
             Add Meeting
@@ -277,9 +414,7 @@
               class="w-full px-4 py-3 bg-gray-800 border-2 border-gray-600 text-white rounded-xl focus:outline-none focus:border-blue-500 transition-all duration-300"
             >
               <option value="">Select folder for information extraction</option>
-              {% for folder in folders %}
-              <option value="{{ folder.id }}">{{ folder.name }}</option>
-              {% endfor %}
+              <!-- Options will be dynamically inserted by eventadd.js -->
             </select>
           </div>
           <div class="flex justify-end space-x-4">
@@ -301,6 +436,7 @@
         </form>
       </div>
     </div>
+
     <script src="{% static 'scripts/eventadd.js' %}"></script>
   </body>
 </html>

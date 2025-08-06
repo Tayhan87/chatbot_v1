@@ -182,6 +182,10 @@ SOCIALACCOUNT_LOGIN_ON_GET = True
 #pip install -q -U google-genai
 #pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 #pip install python-docx PyPDF2
+#pip install sounddevice soundfile requests
+#pip install vosk sounddevice
+
+APPEND_SLASH = False
 
 
 

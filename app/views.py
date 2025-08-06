@@ -598,3 +598,11 @@ def userinfo(request):
         'name': user.username or user.email,
         'email': user.email,
     })
+
+@csrf_exempt
+def meeting_status(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        print("User meeting status:", data["joined"])
+        return JsonResponse({"received": True})
+    return JsonResponse({"error": "Invalid request"}, status=400)
