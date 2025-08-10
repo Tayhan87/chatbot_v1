@@ -611,26 +611,34 @@ def meeting_status(request):
         try:
             data = json.loads(request.body)
             joined = data.get("joined")
-
             print("User meeting status:", joined)
 
             if joined is True:
                 # Remove stop flag if it exists
-                if os.path.exists("stop.flag"):
-                    os.remove("stop.flag")
+                stop_flag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stop.flag")
+                if os.path.exists(stop_flag_path):
+                    os.remove(stop_flag_path)
 
                 # Start transcription process
                 if transcription_process is None or transcription_process.poll() is not None:
-                    transcription_process = subprocess.Popen(["python", "app/transcription.py"])
+                    transcription_process = subprocess.Popen(
+                        ["python", "app/transcription.py"]
+                    )
                     print("✅ Transcription started.")
                 else:
                     print("⚠️ Transcription already running.")
 
             elif joined is False:
-                # Create stop flag
-                with open("stop.flag", "w") as f:
+                stop_flag_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stop.flag")
+                with open(stop_flag_path, "w") as f:
                     f.write("stop")
-                print("🛑 Transcription stop signal sent.")
+
+                if transcription_process and transcription_process.poll() is None:
+                    try:
+                        transcription_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        transcription_process.terminate()
+                print("🛑 Transcription stopped.")
 
             return JsonResponse({"received": True})
 
@@ -639,6 +647,8 @@ def meeting_status(request):
             return JsonResponse({"error": "Invalid data"}, status=400)
 
     return JsonResponse({"error": "Invalid request method"}, status=400)
+
+
 
 @csrf_exempt
 def send_transcript_to_gemini(request):

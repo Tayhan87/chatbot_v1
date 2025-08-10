@@ -178,44 +178,8 @@ function populateMeetings() {
 
 function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
-  messageDiv.className = `message bot-message`;
-
-  // Optional: Add bot avatar
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  avatar.textContent = "🤖"; // You can use an image or emoji
-
-  // Message content container
-  const contentDiv = document.createElement("div");
-  contentDiv.className = "message-content";
-
-  // Bot name
-  const senderSpan = document.createElement("span");
-  senderSpan.className = "sender";
-  senderSpan.textContent = sender;
-
-  // Message text
-  const textP = document.createElement("p");
-  textP.className = "text";
-  textP.textContent = text;
-
-  // Timestamp
-  const timestampSpan = document.createElement("span");
-  timestampSpan.className = "timestamp";
-  const now = new Date();
-  timestampSpan.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  // Assemble content
-  contentDiv.appendChild(senderSpan);
-  contentDiv.appendChild(textP);
-  contentDiv.appendChild(timestampSpan);
-
-  messageDiv.appendChild(avatar);
-  messageDiv.appendChild(contentDiv);
-
+  messageDiv.className = `message ${sender.toLowerCase()}`;
+  messageDiv.textContent = text;
   chatArea.appendChild(messageDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
