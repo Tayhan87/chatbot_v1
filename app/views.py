@@ -18,6 +18,8 @@ import mimetypes
 import io
 import tempfile
 from googleapiclient.http import MediaIoBaseDownload
+from app import transcription
+import subprocess
 
 # Imports for text extraction
 import docx
@@ -599,10 +601,89 @@ def userinfo(request):
         'email': user.email,
     })
 
+transcription_process = None
+
 @csrf_exempt
 def meeting_status(request):
+    global transcription_process
+
     if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            joined = data.get("joined")
+
+            print("User meeting status:", joined)
+
+            if joined is True:
+                # Remove stop flag if it exists
+                if os.path.exists("stop.flag"):
+                    os.remove("stop.flag")
+
+                # Start transcription process
+                if transcription_process is None or transcription_process.poll() is not None:
+                    transcription_process = subprocess.Popen(["python", "app/transcription.py"])
+                    print("✅ Transcription started.")
+                else:
+                    print("⚠️ Transcription already running.")
+
+            elif joined is False:
+                # Create stop flag
+                with open("stop.flag", "w") as f:
+                    f.write("stop")
+                print("🛑 Transcription stop signal sent.")
+
+            return JsonResponse({"received": True})
+
+        except Exception as e:
+            print(f"❌ Error in meeting_status: {e}")
+            return JsonResponse({"error": "Invalid data"}, status=400)
+
+    return JsonResponse({"error": "Invalid request method"}, status=400)
+
+@csrf_exempt
+def send_transcript_to_gemini(request):
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    TRANSCRIPT_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "transcript.txt"
+)
+    
+    if not os.path.exists(TRANSCRIPT_FILE):
+        return JsonResponse({"error": "Transcript file not found."}, status=404)
+
+    # Read transcription
+    with open(TRANSCRIPT_FILE, "r", encoding="utf-8") as f:
+        transcript_text = f.read().strip()
+
+    if not transcript_text:
+        return JsonResponse({"error": "Transcript is empty."}, status=400)
+
+    # Send to Gemini
+    try:
         data = json.loads(request.body)
-        print("User meeting status:", data["joined"])
-        return JsonResponse({"received": True})
-    return JsonResponse({"error": "Invalid request"}, status=400)
+        user_message = data.get('message', '')
+
+        api_key = getattr(settings, 'GEMINI_API_KEY', None)
+
+        if not api_key:
+            logger.error('Gemini API key not configured')
+            return JsonResponse({'response': 'Service unavailable'}, status=503)
+        
+        genai.configure(api_key=api_key)
+        
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"{user_message}:\n\n{transcript_text}"
+        response = model.generate_content(prompt)
+
+        bot_response = response.text if response and hasattr(response, 'text') else "I'm not sure how to respond to that."    
+
+        return JsonResponse({
+            "response": bot_response,
+            "raw_transcript": transcript_text
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

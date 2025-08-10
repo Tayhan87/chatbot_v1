@@ -23,4 +23,5 @@ urlpatterns = [
     path('upload_folder/', views.upload_folder, name='upload_folder'),
     path('api/userinfo/', views.userinfo, name='userinfo'),#added by sumon
     path('api/meet-status/', views.meeting_status, name='meet_status'),
+    path("api/chat_api_in_meeting/",views.send_transcript_to_gemini,name="chat_api_in_meeting"),
 ]

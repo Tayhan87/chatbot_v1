@@ -7,6 +7,9 @@ const API_CONFIG = {
   get CHAT_API_URL() {
     return `${this.BASE_URL}/chat_api/`;
   },
+  get CHAT_API_IN_MEETING_URL() {
+    return `${this.BASE_URL}/api/chat_api_in_meeting/`;
+  },
   get GOOGLE_LOGIN_URL() {
     return `${this.BASE_URL}/accounts/google/login/`;
   },
@@ -132,6 +135,25 @@ async function callAPI(message, folder) {
   }
 }
 
+async function call_In_Meeting_API(message) {
+  try {
+    const response = await fetch(API_CONFIG.CHAT_API_IN_MEETING_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCSRFToken(),
+      },
+      body: JSON.stringify({ message }),
+    });
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    const data = await response.json();
+    return data.response || data.message || "No response received";
+  } catch (error) {
+    console.error("API Call Error:", error);
+    return "Sorry, an error occurred.";
+  }
+}
+
 // --- UI Logic ---
 function showMainUI() {
   authSection.classList.add("hidden");
@@ -156,8 +178,44 @@ function populateMeetings() {
 
 function appendMessage(sender, text) {
   const messageDiv = document.createElement("div");
-  messageDiv.className = `message ${sender.toLowerCase()}`;
-  messageDiv.textContent = text;
+  messageDiv.className = `message bot-message`;
+
+  // Optional: Add bot avatar
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = "🤖"; // You can use an image or emoji
+
+  // Message content container
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "message-content";
+
+  // Bot name
+  const senderSpan = document.createElement("span");
+  senderSpan.className = "sender";
+  senderSpan.textContent = sender;
+
+  // Message text
+  const textP = document.createElement("p");
+  textP.className = "text";
+  textP.textContent = text;
+
+  // Timestamp
+  const timestampSpan = document.createElement("span");
+  timestampSpan.className = "timestamp";
+  const now = new Date();
+  timestampSpan.textContent = now.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  // Assemble content
+  contentDiv.appendChild(senderSpan);
+  contentDiv.appendChild(textP);
+  contentDiv.appendChild(timestampSpan);
+
+  messageDiv.appendChild(avatar);
+  messageDiv.appendChild(contentDiv);
+
   chatArea.appendChild(messageDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
 }
@@ -240,7 +298,14 @@ async function processRequest(text) {
   chatArea.appendChild(typingDiv);
   chatArea.scrollTop = chatArea.scrollHeight;
 
-  const reply = await callAPI(text, selectedMeeting.folder);
+  let reply;
+
+  const isDriveActive = driveToggle.classList.contains("active");
+  if (isDriveActive) {
+    reply = await callAPI(text, selectedMeeting.folder);
+  } else {
+    reply = await call_In_Meeting_API(text);
+  }
 
   chatArea.removeChild(typingDiv);
   appendMessage("Assistant", reply);
